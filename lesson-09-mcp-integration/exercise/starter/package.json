@@ -4,7 +4,7 @@
   "description": "Exercise: Build a code quality reviewer using ESLint MCP server to analyze code and provide quality scores",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",

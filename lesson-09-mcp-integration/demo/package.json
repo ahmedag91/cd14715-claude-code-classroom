@@ -4,7 +4,7 @@
   "description": "Demo: Configure MCP servers (filesystem, GitHub) and show how agents use MCP tools to interact with external systems",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",

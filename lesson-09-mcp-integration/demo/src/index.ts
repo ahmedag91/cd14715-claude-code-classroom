@@ -6,7 +6,7 @@
 
 import dotenv from "dotenv";
 dotenv.config({ override: true });
-import { summarizeGitHubFile } from "./github-summarizer.js";
+import { summarizeGitHubFile } from "./github-summarizer.ts";
 
 // -----------------------------------------------------------------------------
 // Test case: Summarize a file from a public GitHub repo
