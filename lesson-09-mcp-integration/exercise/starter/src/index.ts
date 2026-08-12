@@ -5,8 +5,8 @@
  */
 
 import "dotenv/config";
-import { reviewCodeFile, CodeQualityReport } from "./code-reviewer.js";
-import { CODE_FILES } from "./sample-code.js";
+import { reviewCodeFile, CodeQualityReport } from "./code-reviewer.ts";
+import { CODE_FILES } from "./sample-code.ts";
 
 // -----------------------------------------------------------------------------
 // Test case: Review code with issues
