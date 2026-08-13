@@ -117,7 +117,7 @@ Return the complete quality report in the structured JSON format.`;
           eslint: mcpServersConfig.eslint,
         },
         model,
-        allowedTools: eslintTools,
+        allowedTools: [...eslintTools, 'Read'],
         // Structured output configuration
         outputFormat: {
           type: "json_schema",

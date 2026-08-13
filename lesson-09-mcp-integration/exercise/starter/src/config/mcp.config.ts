@@ -14,6 +14,5 @@ export const mcpServersConfig: Record<string, McpServerConfig> = {
   },
 };
 export const eslintTools = [
-  "mcp__eslint__lint",
-  "mcp__eslint__read",
+  "mcp__eslint__lint"
 ];
