@@ -81,7 +81,7 @@ File path: ${filePath}
 
 ANALYSIS REQUIREMENTS:
 
-1. Use the mcp__eslint__lint tool to lint the file at the path above
+1. Use the mcp__eslint__lint-files tool to lint the file at the path above
 
 2. Use the Read tool to read the file at the path above
 
@@ -110,12 +110,11 @@ ANALYSIS REQUIREMENTS:
 Return the complete quality report in the structured JSON format.`;
 
   try {
+    const messageTypes = new Set<string>() 
     for await (const message of query({
       prompt: generateMessages(userMessage),
       options: {
-        mcpServers: {
-          eslint: mcpServersConfig.eslint,
-        },
+        mcpServers: mcpServersConfig,
         model,
         allowedTools: [...eslintTools, 'Read'],
         // Structured output configuration
@@ -125,29 +124,42 @@ Return the complete quality report in the structured JSON format.`;
         },
       },
     })) {
-      if (message.type === "init") {
-        const initMessage = message as {
-          mcpServers?: Record<string, { status: string; error?: string }>;
-        };
-        if (initMessage.mcpServers) {
-          for (const [name, server] of Object.entries(initMessage.mcpServers)) {
-            if (server.status === "failed") {
+      
+      
+      /**
+       * 
+       * //Comment out all what is inside this loop except for this log statment to sea what messages are being received from the agent. 
+       * 
+       */
+      //console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, message);
+
+      /*if(message.type){
+      messageTypes.add(message.type)
+      console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, 
+        message);
+        }
+        if(messageTypes.size > 3) 
+          throw new Error(`Messages exceeded max size`);
+      */
+
+      if (message.type === "system" && message.subtype === "init") {
+        console.log("Available MCP tools:", message.mcp_servers);
+        if (message.mcp_servers) {
+          console.log("Found init message in MCP servers")
+          for (const server of message.mcp_servers) {
+            if (server.status !== "connected") {
               throw new Error(
-                `MCP server '${name}' failed to connect: ${server.error || "Unknown error"}`,
+                `MCP server '${server.name}' failed to connect: ${server.status || "Unknown error"}`,
               );
             }
-            console.log(`[MCP]: Server '${name}' status: ${server.status}`);
+            console.log(`[MCP]: Server '${server.name}' status: ${server.status}`);
           }
         }
       }
 
-      if (message.type === "system" && message.subtype === "init") {
-        console.log("Available MCP tools:", message.mcp_servers);
-      }
-
       if (message.type === "assistant") {
         const content = message.message?.content;
-        console.log("[Assistant]:", content);
+        //console.log("[Assistant]:", content);
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block.type === "tool_use") {
@@ -156,6 +168,7 @@ Return the complete quality report in the structured JSON format.`;
           }
         }
       }
+      
       // Handle structured output result
       if (message.type === "result") {
         if (message.subtype === "success" && message.structured_output) {
@@ -167,7 +180,9 @@ Return the complete quality report in the structured JSON format.`;
         }
       }
     }
+    
   } catch (error) {
+    console.error(error);
     throw new Error("Failed to get structured output from agent");
   }
   throw new Error(
