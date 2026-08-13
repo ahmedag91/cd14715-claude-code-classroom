@@ -116,7 +116,7 @@ Return the complete quality report in the structured JSON format.`;
       options: {
         mcpServers: mcpServersConfig,
         model,
-        allowedTools: [...eslintTools, 'Read'],
+        allowedTools: [...eslintTools, 'Read', 'Write'],
         // Structured output configuration
         outputFormat: {
           type: "json_schema",
@@ -142,7 +142,11 @@ Return the complete quality report in the structured JSON format.`;
           throw new Error(`Messages exceeded max size`);
       */
 
-      if (message.type === "system" && message.subtype === "init") {
+        if(message.type === "tool_progress")
+          console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, 
+        message);
+
+      /*if (message.type === "system" && message.subtype === "init") {
         console.log("Available MCP tools:", message.mcp_servers);
         if (message.mcp_servers) {
           console.log("Found init message in MCP servers")
@@ -155,13 +159,19 @@ Return the complete quality report in the structured JSON format.`;
             console.log(`[MCP]: Server '${server.name}' status: ${server.status}`);
           }
         }
-      }
+      }*/
 
       if (message.type === "assistant") {
         const content = message.message?.content;
         //console.log("[Assistant]:", content);
+
+         /*console.dir(content, {
+           depth: null,
+           colors: true,
+         });*/
         if (Array.isArray(content)) {
           for (const block of content) {
+            console.log("Block: " , block)
             if (block.type === "tool_use") {
               console.log(`[Tool]: ${block.name}`);
             }
@@ -170,7 +180,7 @@ Return the complete quality report in the structured JSON format.`;
       }
       
       // Handle structured output result
-      if (message.type === "result") {
+      /*if (message.type === "result") {
         if (message.subtype === "success" && message.structured_output) {
           console.log(
             "Structured output received, validating against schema...",
@@ -178,9 +188,9 @@ Return the complete quality report in the structured JSON format.`;
           );
           return CodeQualityReportSchema.parse(message.structured_output);
         }
-      }
+      }*/
     }
-    
+
   } catch (error) {
     console.error(error);
     throw new Error("Failed to get structured output from agent");
