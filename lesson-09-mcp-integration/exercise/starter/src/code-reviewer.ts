@@ -1,21 +1,8 @@
-/**
- * Code Quality Reviewer - Exercise
- *
- * TODO: Build an agent that uses ESLint MCP server to analyze code quality,
- * identify issues, and provide recommendations.
- *
- * Learning objectives:
- * - Use MCP servers with the Claude Agent SDK
- * - Implement async generator input mode (streaming pattern)
- * - Handle MCP server connection status
- * - Parse and return structured results
- */
-
 import "dotenv/config";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { eslintTools, mcpServersConfig } from "./config/mcp.config.js";
+import { eslintTools, mcpServersConfig } from "./config/mcp.config.ts";
 
 const model = process.env.ANTHROPIC_MODEL;
 if (!model) {
@@ -74,14 +61,18 @@ export const CodeQualityReportJSONSchema = zodToJsonSchema(CodeQualityReportSche
 // -----------------------------------------------------------------------------
 
 async function* generateMessages(userMessage: string) {
-  throw new Error("TODO: Implement generateMessages async generator");
-}
+yield {
+    type: "user" as const,
+    message: { role: "user" as const, content: userMessage },
+    parent_tool_use_id: null,
+    session_id: "code-reviewer-session",
+  };}
 
 // -----------------------------------------------------------------------------
 // Main Function
 // -----------------------------------------------------------------------------
 
-export async function reviewCodeFile(filePath: string): Promise<any> {
+export async function reviewCodeFile(filePath: string): Promise<CodeQualityReport> {
   const userMessage = `You are a code quality reviewer with access to ESLint via MCP.
 
 Analyze the JavaScript file and provide a comprehensive quality report.
@@ -118,12 +109,69 @@ ANALYSIS REQUIREMENTS:
 
 Return the complete quality report in the structured JSON format.`;
 
-  // TODO: Step 2 - Call the query function
+  try {
+    for await (const message of query({
+      prompt: generateMessages(userMessage),
+      options: {
+        mcpServers: {
+          eslint: mcpServersConfig.eslint,
+        },
+        model,
+        allowedTools: eslintTools,
+        // Structured output configuration
+        outputFormat: {
+          type: "json_schema",
+          schema: CodeQualityReportJSONSchema,
+        },
+      },
+    })) {
+      if (message.type === "init") {
+        const initMessage = message as {
+          mcpServers?: Record<string, { status: string; error?: string }>;
+        };
+        if (initMessage.mcpServers) {
+          for (const [name, server] of Object.entries(initMessage.mcpServers)) {
+            if (server.status === "failed") {
+              throw new Error(
+                `MCP server '${name}' failed to connect: ${server.error || "Unknown error"}`,
+              );
+            }
+            console.log(`[MCP]: Server '${name}' status: ${server.status}`);
+          }
+        }
+      }
 
-  // TODO: Step 3 - Handle the message stream:
-  // - Check for "init" message to verify MCP server connection status
-  // - Log tool use events (when message.type === "assistant")
-  // - Return the result when message.type === "result" && message.subtype === "success"
+      if (message.type === "system" && message.subtype === "init") {
+        console.log("Available MCP tools:", message.mcp_servers);
+      }
 
-  throw new Error("TODO: Implement reviewCodeFile using query() with MCP servers");
+      if (message.type === "assistant") {
+        const content = message.message?.content;
+        console.log("[Assistant]:", content);
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block.type === "tool_use") {
+              console.log(`[Tool]: ${block.name}`);
+            }
+          }
+        }
+      }
+      // Handle structured output result
+      if (message.type === "result") {
+        if (message.subtype === "success" && message.structured_output) {
+          console.log(
+            "Structured output received, validating against schema...",
+            message.structured_output,
+          );
+          return CodeQualityReportSchema.parse(message.structured_output);
+        }
+      }
+    }
+  } catch (error) {
+    throw new Error("Failed to get structured output from agent");
+  }
+  throw new Error(
+    "Error occurred. Could not generate code quality report for the file: " +
+      filePath,
+  );
 }

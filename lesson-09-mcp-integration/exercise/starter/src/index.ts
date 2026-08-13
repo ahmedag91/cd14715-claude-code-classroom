@@ -5,15 +5,17 @@
  */
 
 import "dotenv/config";
-import { reviewCodeFile, CodeQualityReport } from "./code-reviewer.ts";
+import { reviewCodeFile, type CodeQualityReport } from "./code-reviewer.ts";
 import { CODE_FILES } from "./sample-code.ts";
 
 // -----------------------------------------------------------------------------
 // Test case: Review code with issues
 // -----------------------------------------------------------------------------
 
-async function reviewCodeWithIssues() {
-  const file = CODE_FILES.find((f) => f.id === "issues");
+type ReviewExpectedType = "clean" | "issues" | "errors";
+
+async function reviewCodeForType(expectedType: ReviewExpectedType) {
+  const file = CODE_FILES.find((f) => f.id === expectedType);
   if (!file) {
     throw new Error("File not found");
   }
@@ -76,10 +78,19 @@ function printReport(report: CodeQualityReport) {
 async function main() {
   console.log("=".repeat(60));
   console.log("  EXERCISE: MCP Integration - Code Quality Reviewer");
-  console.log("  Using ESLint MCP to analyze JavaScript files");
-  console.log("=".repeat(60));
 
-  await reviewCodeWithIssues();
+  for (const type of [/*"clean", "issues",*/ "errors"] as ReviewExpectedType[]) {
+    console.log("\n\n")
+    console.log("=".repeat(60));
+    console.log(
+      "  Using ESLint MCP to analyze JavaScript files for type",
+      type,
+    );
+    console.log("=".repeat(60));
+
+    await reviewCodeForType(type);
+  }
+  
 }
 
 main().catch(console.error);
