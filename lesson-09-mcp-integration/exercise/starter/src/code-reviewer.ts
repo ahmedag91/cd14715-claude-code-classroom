@@ -83,29 +83,34 @@ ANALYSIS REQUIREMENTS:
 
 1. Use the mcp__eslint__lint-files tool to lint the file at the path above
 
-2. Use the Read tool to read the file at the path above
+2. If ESLint couldn't find a config file, do the following: 
+  - Create a default ESLint config file. 
+  - Use the Write tool to create the file at the path: eslint.config.js.
+  - Use the Read tool to load such configuration file and ensure it is valid configuration. If not, provide a clear error message.
+  
+3. Use the Read tool to read the file at the path above
 
-3. Identify all linting issues with:
+4. Identify all linting issues with:
    - Line and column number
    - Severity (error, warning, info)
    - ESLint rule violated
    - Description of the problem
    - How to fix it
 
-4. Categorize issues:
+5. Categorize issues:
    - formatting: Spacing, indentation, quotes, semicolons
    - bestPractices: no-var, no-eval, prefer-const, etc.
    - potentialBugs: no-unused-vars, no-cond-assign, etc.
    - other: Any other issues
 
-5. Calculate quality score (0-100):
+6. Calculate quality score (0-100):
    - Start at 100
    - Subtract 10 for each error
    - Subtract 5 for each warning
    - Subtract 2 for each info
    - Minimum score is 0
 
-6. Provide 2-4 actionable recommendations to improve the code.
+7. Provide 2-4 actionable recommendations to improve the code.
 
 Return the complete quality report in the structured JSON format.`;
 
@@ -146,7 +151,7 @@ Return the complete quality report in the structured JSON format.`;
           console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, 
         message);
 
-      /*if (message.type === "system" && message.subtype === "init") {
+      if (message.type === "system" && message.subtype === "init") {
         console.log("Available MCP tools:", message.mcp_servers);
         if (message.mcp_servers) {
           console.log("Found init message in MCP servers")
@@ -159,19 +164,14 @@ Return the complete quality report in the structured JSON format.`;
             console.log(`[MCP]: Server '${server.name}' status: ${server.status}`);
           }
         }
-      }*/
+      }
 
       if (message.type === "assistant") {
         const content = message.message?.content;
-        //console.log("[Assistant]:", content);
-
-         /*console.dir(content, {
-           depth: null,
-           colors: true,
-         });*/
+        console.log("[Assistant]:", content);
         if (Array.isArray(content)) {
           for (const block of content) {
-            console.log("Block: " , block)
+            //console.log("Block:" , block)
             if (block.type === "tool_use") {
               console.log(`[Tool]: ${block.name}`);
             }
@@ -180,7 +180,7 @@ Return the complete quality report in the structured JSON format.`;
       }
       
       // Handle structured output result
-      /*if (message.type === "result") {
+      if (message.type === "result") {
         if (message.subtype === "success" && message.structured_output) {
           console.log(
             "Structured output received, validating against schema...",
@@ -188,7 +188,7 @@ Return the complete quality report in the structured JSON format.`;
           );
           return CodeQualityReportSchema.parse(message.structured_output);
         }
-      }*/
+      }
     }
 
   } catch (error) {
