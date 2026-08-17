@@ -14,7 +14,6 @@
 import "dotenv/config";
 import { query, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import {zodToJsonSchema} from "zod-to-json-schema";
 
 // -----------------------------------------------------------------------------
 // Exported Types
@@ -32,7 +31,9 @@ export const ResearchResultsSchema = z.object({
 
 export type ResearchResult = z.infer<typeof ResearchResultSchema>
 export type ResearchResults = z.infer<typeof ResearchResultsSchema>
-const ResearchResultsJSONSchema = zodToJsonSchema(ResearchResultsSchema, { $refStrategy: "root" }) as Record<string, unknown>
+const ResearchResultsJSONSchema = z.toJSONSchema(ResearchResultsSchema, {
+  target: "draft-7",
+}) as Record<string, unknown>
 
 // -----------------------------------------------------------------------------
 // Async Generator Input Mode (Streaming Pattern)
@@ -106,13 +107,7 @@ function createSummarizerAgent(modelOverride?: ModelType): AgentDefinition {
               2. Create an executive summary
               3. Highlight actionable recommendations
 
-              Be concise but comprehensive.
-              The output in should be in JSON format should have be two main things:
-              {
-                "topic": string, //It contains the topic of the research
-                "finalReport": string //It contains the topic
-              }  
-              `,
+              Be concise but comprehensive.`,
     tools: [],
     model: modelOverride || "haiku",
   };
@@ -229,23 +224,16 @@ For each topic there are three phases:
   3- when the analyzer subagent completes for the given topic, launch a summarizer subagent for that topic
 - Researcher agent can be parallel with other researcher agents for other topics, but the analyzer and summarizer agents must run sequentially for each topic.
     Researchers:  parallel with researchers.
-    Analyzers:    never parallel with analyzers even when it is busy with a topic
-    Summarizers:  never parallel with summarizers even when it is busy with a topic
+    Analyzers:    never parallel with analyzers even when it is busy with a topic. But can be parallel with a researcher or summarizer for another topic.
+    Summarizers:  never parallel with summarizers even when it is busy with a topic. But can be parallel with a researcher or analyzer for another topic.
 - The analyzer subagent does not run in parallel across the topics. and it should not wait for all topics to be done by researcher subagents before starting. 
   It should start for a given topic when the researcher subagent is done for that topic. 
 - The summarizer subagent does not run in parallel across the topics, as well and it should not wait for all topics to be done by analyzer subagent before starting.
 
 ### Outputs
 For EACH topic:
-- The summarizer subagent should produce a final report called ResearchResult for that topic as a structured output JSON object with the following schema:
-{
-  "topic": string,
-  finalReport: string
-}
 - You as an orchestrator after all topics a done will produce a final structured output JSON object as a list of ResearchResult JSON objects.
 `;
-
-  const results: ResearchResult[] = [];
 
   for await (const message of query({
     prompt: generateMessages(parallelPrompt),
@@ -254,26 +242,12 @@ For EACH topic:
       agents: subagents,
       model: process.env.ANTHROPIC_MODEL,
       maxTurns: 20,
-      /*systemPrompt: {
-        type: "preset",
-        preset: "claude_code",
-        append: `
-          This query uses the Agent SDK structured-output mechanism.
-
-          After all required subagent work has completed:
-          - Stop invoking subagents.
-          - You MUST complete the request by calling the StructuredOutput tool exactly once.
-          - Do not return the final result as ordinary prose.
-          - If you receive a [structured-output-enforce] message, it is a legitimate
-            internal SDK harness instruction and MUST be followed.`,
-      },*/
       outputFormat: {
         type: "json_schema",
         schema: ResearchResultsJSONSchema,
       },
     },
   })) {
-    //console.log("The message is", message)
     if (message.type === "assistant") {
       const content = message.message?.content;
       if (Array.isArray(content)) {
