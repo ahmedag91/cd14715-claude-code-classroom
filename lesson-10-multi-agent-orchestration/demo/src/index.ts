@@ -18,8 +18,8 @@ import "dotenv/config";
 import {
   conductResearch,
   conductParallelResearch,
-  ResearchResult, ResearchResults,
-} from "./research-orchestrator.js";
+  type ResearchResult, type ResearchResults,
+} from "./research-orchestrator.ts";
 
 // -----------------------------------------------------------------------------
 // Demo: Sequential Research (single topic)

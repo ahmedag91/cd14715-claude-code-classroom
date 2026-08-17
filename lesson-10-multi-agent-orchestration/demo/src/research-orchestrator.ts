@@ -12,7 +12,7 @@
  */
 
 import "dotenv/config";
-import { query, AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
+import { query, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import {zodToJsonSchema} from "zod-to-json-schema";
 
@@ -108,11 +108,13 @@ function createSummarizerAgent(modelOverride?: ModelType): AgentDefinition {
 
               Be concise but comprehensive.
               The output in should be in JSON format should have be two main things:
-              - The topic of the research with json key topic
-              - The summary as described above with json key finalReport 
+              {
+                "topic": string, //It contains the topic of the research
+                "finalReport": string //It contains the topic
+              }  
               `,
     tools: [],
-    model: modelOverride || "sonnet",
+    model: modelOverride || "haiku",
   };
 }
 
@@ -208,31 +210,39 @@ export async function conductParallelResearch(
 ): Promise<ResearchResults> {
   const parallelPrompt = `You are a research orchestrator coordinating specialized subagents.
 
-You have access to three subagents via the Task tool:
-- researcher: Gathers information using web search
-- analyzer: Finds patterns and insights in data
-  - summarizer: Creates concise summaries and recommendations
-
-IMPORTANT: You should invoke multiple subagents IN PARALLEL when possible.
-The Task tool supports parallel invocation - call multiple tasks in the same response.
-
-Research the following topics IN PARALLEL:
+Research the follwoing topics:
 ${topics.map((t, i) => `${i + 1}. ${t}`).join("\n")}
 
-For EACH topic, use the researcher subagent to gather information.
-Launch all research tasks simultaneously for efficiency.
 
-After ALL researcher subagents have completed:
+### Workflow for each topic:
+For each topic there are three phases:
+1- Research phase: Use the researcher subagent to gather information
+2- Analysis phase: Use the analyzer subagent to find patterns in the research
+3- Summary phase: Use the summarizer subagent to create a final report
 
-1. Do not call any more subagents.
-2. Do not produce an intermediate prose response.
-3. Produce exactly one ResearchResults result matching the configured
-   structured-output schema.
-4. You MUST complete the request using the StructuredOutput tool.
 
-Each result must contain:
-- topic
-- finalReport
+### Orchestration and Parallelism Rules:
+- The research phase can run in parallel across topics, but the analysis and summary phases must run sequentially for each topic.
+- For EACH topic:
+  1- launch one researcher subagent
+  2- when the researcher subagent completes for the given topic topic, launch an analyzer subagent for that topic
+  3- when the analyzer subagent completes for the given topic, launch a summarizer subagent for that topic
+- Researcher agent can be parallel with other researcher agents for other topics, but the analyzer and summarizer agents must run sequentially for each topic.
+    Researchers:  parallel with researchers.
+    Analyzers:    never parallel with analyzers even when it is busy with a topic
+    Summarizers:  never parallel with summarizers even when it is busy with a topic
+- The analyzer subagent does not run in parallel across the topics. and it should not wait for all topics to be done by researcher subagents before starting. 
+  It should start for a given topic when the researcher subagent is done for that topic. 
+- The summarizer subagent does not run in parallel across the topics, as well and it should not wait for all topics to be done by analyzer subagent before starting.
+
+### Outputs
+For EACH topic:
+- The summarizer subagent should produce a final report called ResearchResult for that topic as a structured output JSON object with the following schema:
+{
+  "topic": string,
+  finalReport: string
+}
+- You as an orchestrator after all topics a done will produce a final structured output JSON object as a list of ResearchResult JSON objects.
 `;
 
   const results: ResearchResult[] = [];
@@ -243,7 +253,20 @@ Each result must contain:
       allowedTools: ["Task"],
       agents: subagents,
       model: process.env.ANTHROPIC_MODEL,
-      maxTurns: 50,
+      maxTurns: 20,
+      /*systemPrompt: {
+        type: "preset",
+        preset: "claude_code",
+        append: `
+          This query uses the Agent SDK structured-output mechanism.
+
+          After all required subagent work has completed:
+          - Stop invoking subagents.
+          - You MUST complete the request by calling the StructuredOutput tool exactly once.
+          - Do not return the final result as ordinary prose.
+          - If you receive a [structured-output-enforce] message, it is a legitimate
+            internal SDK harness instruction and MUST be followed.`,
+      },*/
       outputFormat: {
         type: "json_schema",
         schema: ResearchResultsJSONSchema,
@@ -256,30 +279,43 @@ Each result must contain:
       if (Array.isArray(content)) {
         // Count parallel task invocations
         const taskBlocks = content.filter(
-          (block) => block.type === "tool_use" && block.name === "Task"
+          (block) => block.type === "tool_use" && block.name === "Task",
         );
         if (taskBlocks.length > 1) {
-          console.log(`[Orchestrator]: Launching ${taskBlocks.length} subagents in PARALLEL`);
+          console.log(
+            `[Orchestrator]: Launching ${taskBlocks.length} subagents in PARALLEL`,
+          );
         }
       }
     } else if (message.type === "result" && message.subtype === "success") {
       // Parse results for each topic
-      console.log(`[Orchestrator]: Received final structured results`, message.structured_output);
+      console.log(
+        `[Orchestrator]: Received final structured results`,
+        message.structured_output,
+      );
 
-      const parsedResults = ResearchResultsSchema.safeParse(message.structured_output);
+      const parsedResults = ResearchResultsSchema.safeParse(
+        message.structured_output,
+      );
 
-      if(parsedResults.success) {
-        return parsedResults.data
-      } else {
-        throw new Error(`Schema validation failed: ${parsedResults.error.message}`);
+      if (parsedResults.success) {
+        return parsedResults.data;
       }
+
+      throw new Error(
+        `Schema validation failed: ${parsedResults.error.message}`,
+      );
     } else if (
-        message.type === "result" &&
-        ( message.subtype === "error_max_structured_output_retries" || message.subtype === "error_max_turns_reached")
-  ) {
+      message.type === "result" &&
+      (message.subtype === "error_max_turns" ||
+        message.subtype === "error_max_structured_output_retries")
+    ) {
       console.log("Structured output generation failed after maximum retries.");
+      console.log("Error type", message.subtype);
       console.log("Error reason", message.errors);
-      throw new Error("Structured output generation failed after maximum retries.");
+      throw new Error(
+        "Structured output generation failed after maximum retries.",
+      );
     }
   }
 
