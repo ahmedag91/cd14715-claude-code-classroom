@@ -4,7 +4,7 @@
   "description": "Demo: Build a multi-agent system with an orchestrator coordinating researcher, analyzer, and summarizer agents",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",
