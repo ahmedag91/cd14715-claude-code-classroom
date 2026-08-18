@@ -68,7 +68,12 @@ export const SalesBriefingJSONSchema = zodToJsonSchema(SalesBriefingSchema, {
 // -----------------------------------------------------------------------------
 
 async function* generateMessages(userMessage: string) {
-  throw new Error("TODO: Implement generateMessages async generator");
+  yield {
+    type: "user" as const,
+    message: { role: "user" as const, content: userMessage },
+    parent_tool_use_id: null,
+    session_id: "Sales-Opportunity-Orchestrator-Session",
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -83,9 +88,15 @@ const subagents: Record<string, AgentDefinition> = {
   // - prompt: Instructions for gathering company size, industry, tech stack, news
   // - tools: ["WebSearch"] (for web research)
   "company-researcher": {
-    description: "", // TODO: Add description
-    prompt: "", // TODO: Add prompt
-    tools: [], // TODO: What tools does this agent need?
+    description: "Research Specialist that gathers company information",
+    prompt: ` You are a research specialist
+    You have now a company PROSPECT and CONTACT details of it. You should use WebSearch tool and gather the following information:
+    - Company size. The total number of employees globally
+    - Company industry profile including the ones it recently entered, the ones it recently exited, and the the one it is still active in.
+    - Technologies and tech-stalk being used to develop their products
+    - Company news including the positive and negative ones sorted in descending order 
+    `,
+    tools: ["WebSearch"],
     model: "sonnet", // Use model string
   },
 
@@ -95,8 +106,10 @@ const subagents: Record<string, AgentDefinition> = {
   // - tools: [] (no tools needed, uses provided context)
   // - model: "haiku" (simpler analysis, lower cost)
   "competitive-analyzer": {
-    description: "", // TODO: Add description
-    prompt: "", // TODO: Add prompt
+    description: "A competition analyst comparing the company's solution to ours ",
+    prompt: `You are a competitive analyst
+    For the given company details provided, you should analyse them and return their competitive position. 
+    `,
     tools: [], // No tools needed
     model: "haiku",
   },
@@ -152,6 +165,20 @@ After all agents complete, compile a comprehensive sales briefing with:
 - 3-4 talking points for the sales rep
 
 Return the briefing as structured JSON.`;
+
+  for await (const message of query({
+    prompt: generateMessages(orchestratorPrompt),
+    options: {
+      allowedTools: ["Task"],
+      agents: subagents,
+      model: process.env.ANTHROPIC_MODEL,
+      maxTurns: 10,
+    },
+  })) {
+
+    //TODO continue
+
+  }
 
   // TODO 3: Call the query function with:
   // - prompt: Use the async generator (generateMessages)

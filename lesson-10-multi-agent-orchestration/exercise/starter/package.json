@@ -4,7 +4,7 @@
   "description": "Exercise: Build a multi-agent sales intelligence system with company researcher, competitive analyzer, and qualification scorer agents",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",
