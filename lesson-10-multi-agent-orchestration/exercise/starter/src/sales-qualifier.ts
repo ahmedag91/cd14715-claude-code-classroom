@@ -83,11 +83,7 @@ async function* generateMessages(userMessage: string) {
 // -----------------------------------------------------------------------------
 
 const subagents: Record<string, AgentDefinition> = {
-  // TODO: Define "company-researcher" agent
-  // - description: "Research specialist that gathers company intelligence"
-  // - prompt: Instructions for gathering company size, industry, tech stack, news
-  // - tools: ["WebSearch"] (for web research)
-  "company-researcher": {
+    "company-researcher": {
     description: "Research Specialist that gathers company information",
     prompt: ` You are a research specialist
     You have now a company PROSPECT and CONTACT details of it. You should use WebSearch tool and gather the following information:
@@ -100,11 +96,6 @@ const subagents: Record<string, AgentDefinition> = {
     model: "sonnet", // Use model string
   },
 
-  // TODO: Define "competitive-analyzer" agent
-  // - description: "Analyst that compares prospect's solution to ours"
-  // - prompt: Instructions for analyzing competitive position
-  // - tools: [] (no tools needed, uses provided context)
-  // - model: "haiku" (simpler analysis, lower cost)
   "competitive-analyzer": {
     description: "A competition analyst comparing the company's solution to ours ",
     prompt: `You are a competitive analyst
@@ -172,12 +163,46 @@ Return the briefing as structured JSON.`;
       allowedTools: ["Task"],
       agents: subagents,
       model: process.env.ANTHROPIC_MODEL,
-      maxTurns: 10,
+      maxTurns: 15,
+      outputFormat: {
+        type: "json_schema",
+        schema: SalesBriefingJSONSchema,
+      },
     },
   })) {
-
     //TODO continue
 
+    if (message.type === "assistant") {
+      const content = message.message?.content;
+      if (Array.isArray(content)) {
+        const taskBlocks = content.filter(
+          (block) => block.type === "tool_use" && block.name === "Task",
+        );
+        if (taskBlocks.length > 0) {
+          console.log(
+            `[Orchestrator]: Subagents invoked in this turn: `,
+            taskBlocks.map((block) => block.tool_input?.agent).join(", "),
+          );
+        } else console.log("[Orchestrator]: No subagents invoked in this turn");
+      }
+    } else if (message.type === "result" && message.subtype === "success") {
+      console.log(
+        `[Orchestrator]: Received final structured results`,
+        message.structured_output,
+      );
+
+      const parsedResults = SalesBriefingSchema.safeParse(
+        message.structured_output,
+      );
+
+      if (parsedResults.success) {
+        return parsedResults.data
+      }
+
+      throw new Error(
+        `Schema validation failed: ${parsedResults.error.message}`,
+      );
+    }
   }
 
   // TODO 3: Call the query function with:
@@ -193,5 +218,5 @@ Return the briefing as structured JSON.`;
   // - Log Task tool invocations (when block.type === "tool_use" && block.name === "Task")
   // - Return SalesBriefingSchema.parse(message.structured_output) when result is success
 
-  throw new Error("TODO: Implement qualifyOpportunity using query() with subagents");
+  throw new Error("Orchestrator failed. No Success result received from subagents.");
 }
