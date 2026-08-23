@@ -1,21 +1,7 @@
-/**
- * Sales Opportunity Qualifier - Exercise
- *
- * TODO: Build a multi-agent system that uses specialized subagents
- * for comprehensive sales qualification.
- *
- * Learning objectives:
- * - Define programmatic subagents with AgentDefinition
- * - Implement async generator input mode (streaming pattern)
- * - Use model strings ('sonnet', 'haiku') for agent configuration
- * - Coordinate subagents with the Task tool
- * - Handle structured output from multi-agent workflows
- */
-
 import "dotenv/config";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { query, AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
+import { query, type AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 
 // -----------------------------------------------------------------------------
 // Exported Types (provided - no changes needed)
@@ -76,12 +62,6 @@ async function* generateMessages(userMessage: string) {
   };
 }
 
-// -----------------------------------------------------------------------------
-// TODO 2: Define Subagent Definitions
-// Each agent needs: description, prompt, tools, model
-// Use model strings: 'sonnet', 'haiku', or 'opus'
-// -----------------------------------------------------------------------------
-
 const subagents: Record<string, AgentDefinition> = {
     "company-researcher": {
     description: "Research Specialist that gathers company information",
@@ -93,28 +73,32 @@ const subagents: Record<string, AgentDefinition> = {
     - Company news including the positive and negative ones sorted in descending order 
     `,
     tools: ["WebSearch"],
-    model: "sonnet", // Use model string
+    model: "sonnet",
   },
 
   "competitive-analyzer": {
     description: "A competition analyst comparing the company's solution to ours ",
     prompt: `You are a competitive analyst
     For the given company details provided, you should analyse them and return their competitive position. 
+    when given the company details, you should return the following information:
+    - Current solution they are using to solve their problems
+    - Our advantages over their current solution
+    - Their concerns about our solution and how we can address them
+    - Switching barriers and costs
     `,
     tools: [], // No tools needed
     model: "haiku",
   },
-
-  // TODO: Define "qualification-scorer" agent
-  // - description: "Scorer that assesses BANT criteria and deal probability"
-  // - prompt: Instructions for BANT assessment (Budget, Authority, Need, Timeline)
-  // - tools: [] (no tools needed)
-  // - model: "haiku"
   "qualification-scorer": {
-    description: "", // TODO: Add description
-    prompt: "", // TODO: Add prompt
+    description: "Score provider that evaluates BANT criteria and deal probability",
+    prompt: `
+    
+    - Provide a detailed assessment of the BANT criteria (Budget, Authority, Need, Timeline) for the given company and contact information. 
+    - Calculate the deal size and win probability based on the gathered data and return such result
+    
+    `,
     tools: [],
-    model: "haiku",
+    model: "sonnet",
   },
 };
 
@@ -170,7 +154,6 @@ Return the briefing as structured JSON.`;
       },
     },
   })) {
-    //TODO continue
 
     if (message.type === "assistant") {
       const content = message.message?.content;
@@ -178,12 +161,12 @@ Return the briefing as structured JSON.`;
         const taskBlocks = content.filter(
           (block) => block.type === "tool_use" && block.name === "Task",
         );
-        if (taskBlocks.length > 0) {
-          console.log(
-            `[Orchestrator]: Subagents invoked in this turn: `,
-            taskBlocks.map((block) => block.tool_input?.agent).join(", "),
-          );
-        } else console.log("[Orchestrator]: No subagents invoked in this turn");
+        if (taskBlocks.length > 0)
+          taskBlocks.forEach((block) => {
+            console.log(
+                `[Orchestrator]: Launching subagent ${(block as any).input?.subagent_type}.`);
+          })
+        else console.log("[Orchestrator]: No subagents invoked in this turn");
       }
     } else if (message.type === "result" && message.subtype === "success") {
       console.log(
@@ -204,19 +187,6 @@ Return the briefing as structured JSON.`;
       );
     }
   }
-
-  // TODO 3: Call the query function with:
-  // - prompt: Use the async generator (generateMessages)
-  // - options:
-  //   - allowedTools: ["Task"]
-  //   - agents: subagents
-  //   - model: "sonnet" (use string, not env var)
-  //   - outputFormat: { type: "json_schema", schema: SalesBriefingJSONSchema }
-  //   - maxTurns: 15
-  //
-  // TODO 4: Handle the message stream:
-  // - Log Task tool invocations (when block.type === "tool_use" && block.name === "Task")
-  // - Return SalesBriefingSchema.parse(message.structured_output) when result is success
 
   throw new Error("Orchestrator failed. No Success result received from subagents.");
 }

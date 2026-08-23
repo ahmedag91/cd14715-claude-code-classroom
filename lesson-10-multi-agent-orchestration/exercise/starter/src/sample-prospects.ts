@@ -11,8 +11,8 @@ export interface ProspectInfo {
   companyType: "enterprise" | "smb" | "startup";
 }
 
-export const sampleProspects: ProspectInfo[] = [
-  {
+export const sampleProspects: Record<string, ProspectInfo> = {
+  "TechCorp Industries": {
     name: "Sarah Chen",
     companyName: "TechCorp Industries",
     title: "VP of Engineering",
@@ -20,7 +20,7 @@ export const sampleProspects: ProspectInfo[] = [
     source: "inbound",
     companyType: "enterprise",
   },
-  {
+  "GrowthStartup Inc": {
     name: "Mike Johnson",
     companyName: "GrowthStartup Inc",
     title: "CTO",
@@ -28,15 +28,15 @@ export const sampleProspects: ProspectInfo[] = [
     source: "inbound",
     companyType: "startup",
   },
-  {
+  "LocalBiz Solutions": {
     name: "Lisa Park",
     companyName: "LocalBiz Solutions",
     title: "IT Director",
     email: "lpark@localbiz.com",
     source: "outbound",
     companyType: "smb",
-  },
-];
+  }
+}
 
 // Mock company data for consistent testing
 export const mockCompanyData: Record<string, object> = {
