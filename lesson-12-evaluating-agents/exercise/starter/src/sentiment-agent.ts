@@ -62,8 +62,10 @@ Provide a confidence score based on how clear the sentiment indicators are.`;
     },
   })) {
     // Track tool calls
+    //console.log("Message reply from Agent:", message);
     if (message.type === "assistant") {
       const content = message.message?.content;
+      //console.log("Assistant message content:", content);
       if (Array.isArray(content)) {
         for (const block of content) {
           if (block.type === "tool_use") {
