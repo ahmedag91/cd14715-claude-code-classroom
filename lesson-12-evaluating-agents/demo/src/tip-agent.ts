@@ -63,8 +63,11 @@ export async function analyzeTip(
     },
   })) {
     // Track tool calls
+    //console.log("Message type", message.type);
+    //console.log("The message itself is", message)
     if (message.type === "assistant") {
       const content = message.message?.content;
+      //console.log("Message content:", content);
       if (Array.isArray(content)) {
         for (const block of content) {
           if (block.type === "tool_use") {

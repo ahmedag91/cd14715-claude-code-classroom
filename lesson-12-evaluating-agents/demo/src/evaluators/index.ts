@@ -112,6 +112,9 @@ export function evaluateSchemaValidity(trace: AgentTrace): EvaluatorResult {
 
   // Validate against Zod schema
   const validation = TipAnalysisSchema.safeParse(result);
+  const validationData = validation.data as TipAnalysis
+
+  //console.log("Validation data:", validationData);
 
   if (!validation.success) {
     const errors = validation.error.errors.map(e => `${e.path.join(".")}: ${e.message}`);
