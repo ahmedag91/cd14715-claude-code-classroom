@@ -74,7 +74,7 @@ Configured in [src/config/mcp.config.ts](src/config/mcp.config.ts):
 Located in `.claude/skills/`:
 - `javascript-best-practices` - Modern ES patterns, async best practices
 - `typescript-patterns` - TypeScript-specific analysis
-- `python-code-review` - Python idioms and patterns
+- `kotlin-code-review` - Kotlin/Spring Boot backend idioms and patterns
 - `security-analysis` - OWASP Top 10, secure coding
 
 ## Usage
