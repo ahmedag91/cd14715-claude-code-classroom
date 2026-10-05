@@ -12,7 +12,7 @@
  */
 
 export interface McpServerConfig {
-    type: "stdio" | string;
+    type: "stdio";
     command: string;
     args: string[];
     env?: Record<string, string>;
@@ -61,3 +61,10 @@ export const mcpServersConfig: Record<string, McpServerConfig> = {
     }
   }
 };
+export const eslintTools = [
+  "mcp__eslint__*"
+];
+
+export const githubTools = [
+  "mcp__github__*"
+];
