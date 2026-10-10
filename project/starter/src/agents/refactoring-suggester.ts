@@ -8,3 +8,5 @@ export const refactoringSuggester: AgentDefinition = {
     tools: [ "Skill", "Grep", "Glob", "WebSearch", "Read", ...githubTools],
     model: 'inherit'
 }
+
+export const REFACTORING_SUGGESTER_AGENT_NAME = "refactoring-suggester";

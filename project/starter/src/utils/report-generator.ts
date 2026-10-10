@@ -1,4 +1,6 @@
 import { ReviewReport } from '../types/report-types';
+import { mkdir, writeFile } from 'fs/promises';
+import path from 'path';
 
 /**
  * Report Generator
@@ -180,5 +182,10 @@ ${formattedFiles}
    */
   generateJSONReport(report: ReviewReport): string {
     return JSON.stringify(report, null, 2);
+  }
+
+  async saveReport(report: string, filePath: string): Promise<void> {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, report, 'utf-8');
   }
 }

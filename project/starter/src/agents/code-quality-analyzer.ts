@@ -18,3 +18,5 @@ export const codeQualityAnalyzer: AgentDefinition = {
         },
     }],
 }
+
+export const QUALITY_ANALYZER_AGENT_NAME = "code-quality-analyzer";
