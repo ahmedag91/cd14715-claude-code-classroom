@@ -6,7 +6,7 @@
  *       then uncomment the exports below
  */
 
-export { logger, logReviewComplete, logReviewError, logAgentStart, logReviewStart } from './logger.js';
+export { logger, logReviewComplete, logReviewError, logAgentStart, logReviewStart, logAgentComplete } from './logger.js';
 export { ReportGenerator } from './report-generator.js';
 
 // TODO: Uncomment these exports after completing the implementations

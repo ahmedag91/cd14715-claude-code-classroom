@@ -13,7 +13,7 @@ export const buildOrchestratorPrompt = (owner: string, repo: string, prNumber: n
     - ${QUALITY_ANALYZER_AGENT_NAME}: Analyzes code for quality issues, identifying potential bugs, code smells, and areas for improvement, and providing a report in JSON format highlighting issues found, associated code files, and recommendations for fixing them.
     - ${TEST_COVERAGE_ANALYZER_AGENT_NAME}: Analyzes code for test coverage, identifying areas where tests are lacking or insufficient and providing a report in JSON format highlighting untested paths, associated test files, and recommendations for improving test coverage.
     - ${REFACTORING_SUGGESTER_AGENT_NAME}: Analyzes code for refactoring opportunities, identifying areas where code can be improved for readability, maintainability, and performance, and providing a report in JSON format highlighting suggested refactorings, associated code files, and recommendations for implementing the changes.
-
+- When a subagent starts working on a given file, set description to exactly that file's, nothing else
 After all subagents have completed their analysis for all files, you will aggregate their results into a comprehensive review report in JSON format. The report should include the following sections:
 - Pull Request Information: Include the owner, repository name, and pull request number.
 - File Reviews: For each file in the pull request, include the results from each subagent (code quality, test coverage, and refactoring suggestions).

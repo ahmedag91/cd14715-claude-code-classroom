@@ -2,7 +2,7 @@ import {ReviewReport, ReviewReportJSONSchema, ReviewReportSchema} from './types/
 import {AgentDefinition, query} from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import {githubTools, mcpServersConfig} from "./config/mcp.config";
-import { logAgentStart, logReviewStart } from './utils';
+import { logAgentStart, logAgentComplete, logReviewStart, logger } from './utils';;
 
 /**
  * Orchestrator configuration options
@@ -42,6 +42,8 @@ export class CodeReviewOrchestrator {
     const PROJECT_ROOT = path.resolve(__dirname, "..")
     logReviewStart(owner, repo, prNumber);
 
+    const activeSubagents = new Map<string, { subagentType: string; file: string; startedAt: number }>();
+
     for await (const message of query({
       prompt: this.generateMessages(this.orchestratorPrompt(owner, repo, prNumber)),
       options: {
@@ -68,14 +70,22 @@ export class CodeReviewOrchestrator {
           );
           if (taskBlocks.length > 0)
             taskBlocks.forEach((block) => {
-              /*console.log(
-                  `[Orchestrator]: Launching subagent ${(block as any).input?.subagent_type}.`);*/
-
+              const file = (block as any).input?.description;
+              const subagentType = (block as any).input?.subagent_type;
+              logAgentStart(subagentType, file);
+              activeSubagents.set(file, {subagentType, file, startedAt: Date.now()});
             })
-          else console.log("[Orchestrator]: No subagents invoked in this turn");
+          else logger.debug("[Orchestrator]: No subagents invoked in this turn");
+        }
+      } else if (message.type === "user" && message.parent_tool_use_id) {
+        const started = activeSubagents.get(message.parent_tool_use_id);
+        if (started) {
+          const duration = Date.now() - started.startedAt;
+          logAgentComplete(started.subagentType, started.file, duration);
+          activeSubagents.delete(message.parent_tool_use_id);
         }
       } else if (message.type === "result" && message.subtype === "success") {
-        console.log(
+        logger.debug(
             `[Orchestrator]: Received final structured results`,
             message.structured_output,
         );
