@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import {CodeReviewOrchestrator} from './orchestrator.js';
-import {ReportGenerator, logReviewError} from './utils';
+import {ReportGenerator, logReviewError, logReviewStart, logReviewComplete} from './utils';
 import {buildOrchestratorPrompt} from "./prompts";
 import "./agents";
 import {ReviewReport} from "./types";
@@ -81,7 +81,10 @@ async function main() {
                 REFACTORING_SUGGESTER_AGENT_NAME: refactoringSuggester,
             }
         });
-        const reviewReport = await orchestrator.reviewPullRequest(owner, repo, prNumber);
+      const startTime = Date.now();
+      logReviewStart(owner, repo, prNumber);
+      const reviewReport = await orchestrator.reviewPullRequest(owner, repo, prNumber);
+      logReviewComplete(owner, repo, prNumber, reviewReport.summary.overallScore, Math.round((Date.now() - startTime) / 100) / 10);
 
         // Generate reports
         const reportGenerator = new ReportGenerator();

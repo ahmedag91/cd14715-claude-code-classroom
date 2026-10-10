@@ -2,7 +2,7 @@ import {ReviewReport, ReviewReportJSONSchema, ReviewReportSchema} from './types/
 import {AgentDefinition, query} from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import {githubTools, mcpServersConfig} from "./config/mcp.config";
-import { logAgentStart, logAgentComplete, logReviewStart, logger } from './utils';;
+import { logAgentStart, logAgentComplete, logReviewStart, logger, logReviewComplete } from './utils';
 
 /**
  * Orchestrator configuration options
@@ -40,8 +40,6 @@ export class CodeReviewOrchestrator {
       prNumber: number
   ): Promise<ReviewReport> {
     const PROJECT_ROOT = path.resolve(__dirname, "..")
-    logReviewStart(owner, repo, prNumber);
-
     const activeSubagents = new Map<string, { subagentType: string; file: string; startedAt: number }>();
 
     for await (const message of query({
@@ -81,7 +79,7 @@ export class CodeReviewOrchestrator {
         const started = activeSubagents.get(message.parent_tool_use_id);
         if (started) {
           const duration = Date.now() - started.startedAt;
-          logAgentComplete(started.subagentType, started.file, duration);
+          logAgentComplete(started.subagentType, started.file, Math.round(duration / 100) / 10);
           activeSubagents.delete(message.parent_tool_use_id);
         }
       } else if (message.type === "result" && message.subtype === "success") {
