@@ -2,7 +2,7 @@ import {ReviewReport, ReviewReportJSONSchema, ReviewReportSchema} from './types/
 import {AgentDefinition, query} from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import {githubTools, mcpServersConfig} from "./config/mcp.config";
-import { logAgentStart, logAgentComplete, logReviewStart, logger, logReviewComplete } from './utils';
+import { ReviewError, logAgentStart, logAgentComplete, logger, ErrorCodes } from './utils';
 
 /**
  * Orchestrator configuration options
@@ -37,8 +37,9 @@ export class CodeReviewOrchestrator {
   async reviewPullRequest(
       owner: string,
       repo: string,
-      prNumber: number
+      prNumber: number,
   ): Promise<ReviewReport> {
+    const maxTurns = 30;
     const PROJECT_ROOT = path.resolve(__dirname, "..")
     const activeSubagents = new Map<string, { subagentType: string; file: string; startedAt: number }>();
 
@@ -50,7 +51,7 @@ export class CodeReviewOrchestrator {
         allowedTools: [...githubTools, "Task", "Skill", "Grep", "Glob", "WebSearch", "Read"],
         agents: this.subAgents,
         model: process.env.ANTHROPIC_MODEL,
-        maxTurns: 30,
+        maxTurns: maxTurns,
         outputFormat: {
           type: "json_schema",
           schema: ReviewReportJSONSchema,
@@ -71,7 +72,7 @@ export class CodeReviewOrchestrator {
               const file = (block as any).input?.description;
               const subagentType = (block as any).input?.subagent_type;
               logAgentStart(subagentType, file);
-              activeSubagents.set(file, {subagentType, file, startedAt: Date.now()});
+              activeSubagents.set((block as any).id, {subagentType, file, startedAt: Date.now()});
             })
           else logger.debug("[Orchestrator]: No subagents invoked in this turn");
         }
@@ -95,15 +96,14 @@ export class CodeReviewOrchestrator {
         if (parsedResults.success)
           return parsedResults.data;
         else
-          throw new Error("Structured output generation failed after maximum retries.");
+          throw new ReviewError("Structured output generation failed after maximum retries.", ErrorCodes.STRUCTURED_OUTPUT_FAILED, {"Validation_Errors": parsedResults.error.format()});
       } else if (message.type === "result" &&
           (message.subtype === "error_max_turns" ||
               message.subtype === "error_max_structured_output_retries")) {
-        throw new Error(`Orchestrator failed: ${message.subtype}. No Success result received from subagents.
-        ${message.errors.join("\n")}`);
+        throw new ReviewError(`Orchestrator failed: ${message.subtype}. No Success result received from subagents.`, ErrorCodes.AGENT_FAILED, {errors: message.errors.join("\n")});
       }
     }
-    throw new Error("Orchestrator failed. No Success result received from subagents.");
+    throw new ReviewError("Orchestrator failed. Max turns have been reached", ErrorCodes.AGENT_FAILED, {"Max_Turns": maxTurns});
   }
 
   private async* generateMessages(prompt: string) {
