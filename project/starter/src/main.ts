@@ -1,10 +1,18 @@
 import * as dotenv from 'dotenv';
 import {CodeReviewOrchestrator} from './orchestrator.js';
-import {ReportGenerator, logReviewError, logReviewStart, logReviewComplete, withTimeout, withRetry} from './utils';
+import {logReviewComplete, logReviewError, logReviewStart, ReportGenerator, withRetry, withTimeout} from './utils';
 import {buildOrchestratorPrompt} from "./prompts";
 import "./agents";
 import {ReviewReport} from "./types";
-import {codeQualityAnalyzer, refactoringSuggester, testCoverageAnalyzer} from "./agents";
+import {
+    codeQualityAnalyzer,
+    QUALITY_ANALYZER_AGENT_NAME,
+    REFACTORING_SUGGESTER_AGENT_NAME,
+    refactoringSuggester,
+    TEST_COVERAGE_ANALYZER_AGENT_NAME,
+    testCoverageAnalyzer
+} from "./agents";
+import {globalRateLimiter, withRateLimit} from "./utils/rate-limiter";
 
 // Load environment variables
 dotenv.config();
@@ -76,19 +84,23 @@ async function main() {
         const orchestrator = new CodeReviewOrchestrator({
             orchestratorPrompt: buildOrchestratorPrompt,
             subAgents: {
-                QUALITY_ANALYZER_AGENT_NAME: codeQualityAnalyzer,
-                TEST_COVERAGE_ANALYZER_AGENT_NAME: testCoverageAnalyzer,
-                REFACTORING_SUGGESTER_AGENT_NAME: refactoringSuggester,
+                [QUALITY_ANALYZER_AGENT_NAME]: codeQualityAnalyzer,
+                [TEST_COVERAGE_ANALYZER_AGENT_NAME]: testCoverageAnalyzer,
+                [REFACTORING_SUGGESTER_AGENT_NAME]: refactoringSuggester,
             }
         });
-      const startTime = Date.now();
-      logReviewStart(owner, repo, prNumber);
-        const reviewReport = await withRetry(() => withTimeout(
-            () => orchestrator.reviewPullRequest(owner, repo, prNumber),
-            30000,
-            'Review pull request timed out'
-        ));
-      logReviewComplete(owner, repo, prNumber, reviewReport.summary.overallScore, Math.round((Date.now() - startTime) / 100) / 10);
+        const startTime = Date.now();
+        logReviewStart(owner, repo, prNumber);
+        const reviewReport = await withRetry(() =>
+            withRateLimit(globalRateLimiter,
+                () => withTimeout(
+                    () => orchestrator.reviewPullRequest(owner, repo, prNumber),
+                    300000,
+                    'Review pull request timed out'
+                )
+            )
+        );
+        logReviewComplete(owner, repo, prNumber, reviewReport.summary.overallScore, Math.round((Date.now() - startTime) / 100) / 10);
 
         // Generate reports
         const reportGenerator = new ReportGenerator();
@@ -103,7 +115,7 @@ async function main() {
         }
 
     } catch (error) {
-       logReviewError(owner, repo, prNumber, error as Error);
+        logReviewError(owner, repo, prNumber, error as Error);
     }
 }
 
