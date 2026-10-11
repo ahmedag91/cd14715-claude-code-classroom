@@ -75,9 +75,21 @@ export async function withRetry<T>(
   // - Add jitter: Math.random() * 100
   // - Use setTimeout wrapped in Promise for delay
   // - Throw ReviewError with ErrorCodes.RETRY_EXHAUSTED if all retries fail
-
-  throw new Error('Not implemented');
+  if(maxRetries < 0) {
+    throw new ReviewError('Max retries have been reached', ErrorCodes.RETRY_EXHAUSTED);
+  }
+  try {
+    return await fn();
+  } catch(error) {
+    if(error instanceof ReviewError) {
+      await sleep(delayMs * Math.pow(2, maxRetries - 1) + Math.random() * 100);
+      return await withRetry(fn, maxRetries - 1, delayMs);
+    }
+  }
+  throw new ReviewError('Max retries have been reached', ErrorCodes.RETRY_EXHAUSTED);
 }
+
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Wrap an async function with timeout
@@ -91,20 +103,23 @@ export async function withRetry<T>(
  * @returns The result of the function if it completes before timeout
  * @throws ReviewError with AGENT_TIMEOUT code if timeout is reached
  */
-export async function withTimeout<T>(
+export const withTimeout= async<T>(
   fn: () => Promise<T>,
   timeoutMs: number,
   errorMessage: string = 'Operation timed out'
-): Promise<T> {
+): Promise<T> =>
   // TODO: Implement timeout wrapper using Promise.race
   // Hints:
   // - Use Promise.race to race fn() against a timeout promise
   // - The timeout promise should reject after timeoutMs milliseconds
   // - Throw ReviewError with ErrorCodes.AGENT_TIMEOUT on timeout
   // - Include timeoutMs in metadata
-
-  throw new Error('Not implemented');
-}
+  await Promise.race([
+    fn(),
+    new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new ReviewError(errorMessage, ErrorCodes.AGENT_TIMEOUT, {'timeoutMs': timeoutMs})), timeoutMs)
+    )
+  ])
 
 /**
  * Check if an error is a ReviewError

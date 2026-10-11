@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import {CodeReviewOrchestrator} from './orchestrator.js';
-import {ReportGenerator, logReviewError, logReviewStart, logReviewComplete} from './utils';
+import {ReportGenerator, logReviewError, logReviewStart, logReviewComplete, withTimeout, withRetry} from './utils';
 import {buildOrchestratorPrompt} from "./prompts";
 import "./agents";
 import {ReviewReport} from "./types";
@@ -83,12 +83,16 @@ async function main() {
         });
       const startTime = Date.now();
       logReviewStart(owner, repo, prNumber);
-      const reviewReport = await orchestrator.reviewPullRequest(owner, repo, prNumber);
+        const reviewReport = await withRetry(() => withTimeout(
+            () => orchestrator.reviewPullRequest(owner, repo, prNumber),
+            30000,
+            'Review pull request timed out'
+        ));
       logReviewComplete(owner, repo, prNumber, reviewReport.summary.overallScore, Math.round((Date.now() - startTime) / 100) / 10);
 
         // Generate reports
         const reportGenerator = new ReportGenerator();
-        const filePath = `reports/${owner}_${repo}_pr${prNumber}/${owner}_${repo}_pr${prNumber}_report`;
+        const filePath = `reports/${owner}_${repo}_pr${prNumber}/${owner}_${repo}_pr${prNumber}_report`;// TODO fixx - remove subfolder
 
         for await (const [fileType, generateFile] of Object.entries(type2FileGenerator)) {
             console.log("#".repeat(50));
