@@ -3,10 +3,14 @@ import {AgentDefinition, query} from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import {githubTools, mcpServersConfig} from "./config/mcp.config";
 import { ReviewError, logAgentStart, logAgentComplete, logger, ErrorCodes } from './utils';
+import {fileURLToPath} from "url";
 
 /**
  * Orchestrator configuration options
  */
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export interface OrchestratorOptions {
   orchestratorPrompt: (owner: string, repo: string, prNumber: number) => string;
   subAgents: Record<string, AgentDefinition>;
@@ -39,7 +43,7 @@ export class CodeReviewOrchestrator {
       repo: string,
       prNumber: number,
   ): Promise<ReviewReport> {
-    const maxTurns = 30;
+    const maxTurns = 10;
     const PROJECT_ROOT = path.resolve(__dirname, "..")
     const activeSubagents = new Map<string, { subagentType: string; file: string; startedAt: number }>();
 
@@ -60,9 +64,11 @@ export class CodeReviewOrchestrator {
       }
 
     })) {
+      logger.debug(`[Orchestrator]: Received message of type ${message.type}`);
 
       if (message.type === "assistant") {
         const content = message.message?.content;
+        logger.debug(`[Orchestrator]: Assistant content:`, content);
         if (Array.isArray(content)) {
           const taskBlocks = content.filter(
               (block) => block.type === "tool_use" && block.name === "Task",
@@ -71,10 +77,12 @@ export class CodeReviewOrchestrator {
             taskBlocks.forEach((block) => {
               const file = (block as any).input?.description;
               const subagentType = (block as any).input?.subagent_type;
+              logger.info(`[Orchestrator]: Starting subagent ${subagentType} for file ${file}`);
               logAgentStart(subagentType, file);
               activeSubagents.set((block as any).id, {subagentType, file, startedAt: Date.now()});
             })
-          else logger.debug("[Orchestrator]: No subagents invoked in this turn");
+          else
+            logger.info("[Orchestrator]: No subagents invoked in this turn");
         }
       } else if (message.type === "user" && message.parent_tool_use_id) {
         const started = activeSubagents.get(message.parent_tool_use_id);
@@ -84,10 +92,9 @@ export class CodeReviewOrchestrator {
           activeSubagents.delete(message.parent_tool_use_id);
         }
       } else if (message.type === "result" && message.subtype === "success") {
-        logger.debug(
+        logger.info(
             `[Orchestrator]: Received final structured results`,
-            message.structured_output,
-        );
+                message.structured_output)
 
         const parsedResults = ReviewReportSchema.safeParse(
             message.structured_output,
