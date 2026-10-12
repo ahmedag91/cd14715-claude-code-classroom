@@ -9,10 +9,12 @@ export const buildOrchestratorPrompt = (owner: string, repo: string, prNumber: n
 - Your task is to analyze the code changes, assess code quality, test coverage, and suggest refactoring opportunities.
 - The pull request may contain multiple files and complex changes, so you will need to delegate tasks to specialized subagents for detailed analysis. 
 - You as an orchestrator agent will not perform the analysis yourself, but rather coordinate the subagents to ensure a thorough review is conducted.
-- You have the following subagents available for this task and can run in parallel for each file in the pull request:
+- You have the following subagents available, you must invoke all of them for this task and can run in parallel for each file in the pull request, i.e., do not call them one at a time:
     - ${QUALITY_ANALYZER_AGENT_NAME}: Analyzes code for quality issues, identifying potential bugs, code smells, and areas for improvement, and providing a report in JSON format highlighting issues found, associated code files, and recommendations for fixing them.
     - ${TEST_COVERAGE_ANALYZER_AGENT_NAME}: Analyzes code for test coverage, identifying areas where tests are lacking or insufficient and providing a report in JSON format highlighting untested paths, associated test files, and recommendations for improving test coverage.
     - ${REFACTORING_SUGGESTER_AGENT_NAME}: Analyzes code for refactoring opportunities, identifying areas where code can be improved for readability, maintainability, and performance, and providing a report in JSON format highlighting suggested refactorings, associated code files, and recommendations for implementing the changes.
+- Each subagent will return their results in JSON format, and you will aggregate these results into a comprehensive review report.
+- Do not re-invoke a subagent you have already got the results for a given file, but you can invoke the same subagent for different files in the pull request.
 - When a subagent starts working on a given file, set description to exactly that file's, nothing else
 After all subagents have completed their analysis for all files, you will aggregate their results into a comprehensive review report in JSON format. The report should include the following sections:
 - Pull Request Information: Include the owner, repository name, and pull request number.
