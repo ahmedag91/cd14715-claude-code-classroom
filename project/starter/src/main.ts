@@ -1,6 +1,14 @@
-import * as dotenv from 'dotenv';
+import 'dotenv/config';
 import {CodeReviewOrchestrator} from './orchestrator.js';
-import {logReviewComplete, logReviewError, logReviewStart, ReportGenerator, withRetry, withTimeout} from './utils';
+import {
+    logger,
+    logReviewComplete,
+    logReviewError,
+    logReviewStart,
+    ReportGenerator,
+    withRetry,
+    withTimeout
+} from './utils';
 import {buildOrchestratorPrompt} from "./prompts";
 import "./agents";
 import {ReviewReport} from "./types";
@@ -13,9 +21,6 @@ import {
     testCoverageAnalyzer
 } from "./agents";
 import {globalRateLimiter, withRateLimit} from "./utils/rate-limiter";
-
-// Load environment variables
-dotenv.config();
 
 /**
  * Main entry point for the Claude Multi-Agent Code Review System
@@ -95,7 +100,7 @@ async function main() {
             withRateLimit(globalRateLimiter,
                 () => withTimeout(
                     () => orchestrator.reviewPullRequest(owner, repo, prNumber),
-                    300000,
+                    600000,
                     'Review pull request timed out'
                 )
             )
@@ -104,14 +109,18 @@ async function main() {
 
         // Generate reports
         const reportGenerator = new ReportGenerator();
-        const filePath = `reports/${owner}_${repo}_pr${prNumber}/${owner}_${repo}_pr${prNumber}_report`;// TODO fixx - remove subfolder
+        const filePath = `reports/${owner}_${repo}_pr${prNumber}_report`;
 
         for await (const [fileType, generateFile] of Object.entries(type2FileGenerator)) {
             console.log("#".repeat(50));
             console.log("Generating report:", `${filePath}.${fileType}`);
 
-            const report = generateFile(reviewReport, reportGenerator);
-            await reportGenerator.saveReport(report, `${filePath}.${fileType}`);
+            try {
+                const report = generateFile(reviewReport, reportGenerator);
+                await reportGenerator.saveReport(report, `${filePath}.${fileType}`);
+            } catch (error) {
+                logger.error(`Error generating report for ${fileType}:`, error);
+            }
         }
 
     } catch (error) {

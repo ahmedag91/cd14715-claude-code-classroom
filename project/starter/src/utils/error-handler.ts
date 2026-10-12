@@ -75,17 +75,29 @@ export async function withRetry<T>(
   // - Add jitter: Math.random() * 100
   // - Use setTimeout wrapped in Promise for delay
   // - Throw ReviewError with ErrorCodes.RETRY_EXHAUSTED if all retries fail
-  if(maxRetries < 0) {
-    throw new ReviewError('Max retries have been reached', ErrorCodes.RETRY_EXHAUSTED);
-  }
-  try {
-    return await fn();
-  } catch(error) {
-    if(error instanceof ReviewError) {
-      await sleep(delayMs * Math.pow(2, maxRetries - 1) + Math.random() * 100);
-      return await withRetry(fn, maxRetries - 1, delayMs);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      // A timeout means the attempt already used its full time (and cost) budget.
+      // Retrying with the same budget is unlikely to succeed, so fail fast instead
+      // of paying for maxRetries more timed-out attempts.
+      // TODO it should be improved
+      if (error instanceof ReviewError && error.code === ErrorCodes.AGENT_TIMEOUT) {
+        throw error;
+      }
+      if (attempt === maxRetries) {
+        throw new ReviewError(
+          `Max retries have been reached: ${formatError(error)}`,
+          ErrorCodes.RETRY_EXHAUSTED,
+          { attempts: maxRetries, lastError: formatError(error) }
+        );
+      }
+      const backoff = delayMs * Math.pow(2, attempt - 1) + Math.random() * 100;
+      await sleep(backoff);
     }
   }
+  // Unreachable: the loop above always either returns or throws.
   throw new ReviewError('Max retries have been reached', ErrorCodes.RETRY_EXHAUSTED);
 }
 
