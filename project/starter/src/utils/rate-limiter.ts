@@ -81,7 +81,7 @@ export class RateLimiter {
 
     // Update last request with actual token count if provided
     if (actualTokens !== undefined && this.requestHistory.length > 0) {
-      const lastRequest = this.requestHistory[this.requestHistory.length - 1];
+      const lastRequest = this.requestHistory[this.requestHistory.length - 1]!;
       lastRequest.tokens = actualTokens;
     }
 
@@ -188,7 +188,7 @@ export class RateLimiter {
       if (this.requestHistory.length === 0) {
         break;
       }
-      const oldestTimestamp = this.requestHistory[0].timestamp;
+      const oldestTimestamp = this.requestHistory[0]!.timestamp;
       const expirationTime = oldestTimestamp + 60000;
       const waitTime = Math.min(Math.max(100, expirationTime - Date.now() + 100), 5000);
       await new Promise((resolve) => setTimeout(resolve, waitTime));

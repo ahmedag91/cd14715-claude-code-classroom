@@ -20,7 +20,7 @@ import {
     TEST_COVERAGE_ANALYZER_AGENT_NAME,
     testCoverageAnalyzer
 } from "./agents";
-import {globalRateLimiter, withRateLimit} from "./utils/rate-limiter";
+import {globalRateLimiter, withRateLimit} from "./utils";
 
 /**
  * Main entry point for the Claude Multi-Agent Code Review System
@@ -38,8 +38,8 @@ async function main() {
         process.exit(1);
     }
     const prNumber = parseInt(prStr, 10);
-    if (isNaN(prNumber)) {
-        console.error("Error: Pull request number must be a valid integer.");
+    if (isNaN(prNumber) || prNumber <= 0) {
+        console.error("Error: Pull request number must be a positive integer.");
         process.exit(1);
     }
 
