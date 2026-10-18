@@ -1,3 +1,5 @@
+import {logger} from "./logger";
+
 /**
  * Custom error class for review operations
  */
@@ -85,9 +87,14 @@ export async function withRetry<T>(
       // shared session tracker (see orchestrator.ts), a retry resumes the prior
       // session instead of restarting — so retrying after a timeout is worthwhile.
 
-      if (error instanceof ReviewError && error.code === ErrorCodes.NOT_ENOUGH_CREDITS) {
-        throw new ReviewError("Not enough credits to complete the operation",
+      if (error instanceof ReviewError) {
+
+        if(error.code === ErrorCodes.NOT_ENOUGH_CREDITS)
+          throw new ReviewError("Not enough credits to complete the operation",
             ErrorCodes.NOT_ENOUGH_CREDITS, {attempts: attempt, ...error.metadata});
+
+        if(error.code === ErrorCodes.AGENT_TIMEOUT)
+          logger.error(`Attempt ${attempt} failed due to timeout. Retrying...`, { error: formatError(error) });
       }
       if (attempt === maxRetries) {
         throw new ReviewError(
