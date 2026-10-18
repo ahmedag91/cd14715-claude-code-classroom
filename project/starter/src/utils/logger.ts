@@ -1,4 +1,5 @@
 import winston from 'winston';
+import {ReviewError} from "./error-handler";
 
 /**
  * Application logger using Winston
@@ -75,6 +76,8 @@ export const logReviewError = (
     repo,
     prNumber,
     error: error.message,
+    code: (error as ReviewError)?.code,
+    metadata: (error as ReviewError)?.metadata,
     stack: error.stack,
     status: 'failed'
   });

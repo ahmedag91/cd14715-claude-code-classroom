@@ -1,8 +1,8 @@
 import {ReviewReport, ReviewReportJSONSchema, ReviewReportSchema} from './types/report-types';
-import {AgentDefinition, query} from "@anthropic-ai/claude-agent-sdk";
+import {AgentDefinition, Query, query, SDKMessage} from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import {githubTools, mcpServersConfig} from "./config/mcp.config";
-import { ReviewError, logAgentStart, logAgentComplete, logger, ErrorCodes } from './utils';
+import {ReviewError, logAgentStart, logAgentComplete, logger, ErrorCodes, logReviewError} from './utils';
 import {fileURLToPath} from "url";
 
 /**
@@ -68,7 +68,7 @@ export class CodeReviewOrchestrator {
           schema: ReviewReportJSONSchema,
         },
         mcpServers: mcpServersConfig,
-        ...(resumeSessionId ? { resume: resumeSessionId } : {}),
+        ...(resumeSessionId ? {resume: resumeSessionId} : {}),
       }
 
     })) {
@@ -102,26 +102,37 @@ export class CodeReviewOrchestrator {
           logAgentComplete(started.subagentType, started.file, Math.round(duration / 100) / 10);
           activeSubagents.delete(message.parent_tool_use_id);
         }
-      } else if (message.type === "result" && message.subtype === "success") {
-        logger.info(
-            `[Orchestrator]: Received final structured results`,
-                message.structured_output)
-
-        const parsedResults = ReviewReportSchema.safeParse(
-            message.structured_output,
-        );
-
-        if (parsedResults.success)
-          return parsedResults.data;
-        else
-          throw new ReviewError("Structured output generation failed", ErrorCodes.STRUCTURED_OUTPUT_FAILED, {"Validation_Errors": parsedResults.error.format()});
-      } else if (message.type === "result" &&
-          (message.subtype === "error_max_turns" ||
-              message.subtype === "error_max_structured_output_retries")) {
-        throw new ReviewError(`Orchestrator failed: ${message.subtype}. No Success result received from subagents.`, ErrorCodes.AGENT_FAILED, {errors: message.errors.join("\n")});
+      } else if (message.type === "result") {
+        if (message.subtype === "success") {
+          logger.info(
+              `[Orchestrator]: Received final structured results`,
+              message.structured_output)
+          const parsedResults = ReviewReportSchema.safeParse(
+              message.structured_output,
+          );
+          if (parsedResults.success)
+            return parsedResults.data;
+          else
+            throw new ReviewError("Structured output generation failed", ErrorCodes.VALIDATION_FAILED, {"Validation_Errors": parsedResults.error.format()});
+        } else if (message.subtype === "error_max_turns")
+          throw this.createReviewErrorAndLog(owner, repo, prNumber, `Orchestrator failed: ${message.subtype}. Max turns has been reached.`, message, ErrorCodes.AGENT_FAILED);
+        else if (message.subtype === "error_max_structured_output_retries")
+          throw this.createReviewErrorAndLog(owner, repo, prNumber, `Orchestrator failed: ${message.subtype}. Failed to create structured output.`, message, ErrorCodes.STRUCTURED_OUTPUT_FAILED);
+        else if (message.subtype === "error_max_budget_usd")
+          throw this.createReviewErrorAndLog(owner, repo, prNumber, `Orchestrator failed: ${message.subtype}. Max budget has been reached.`, message, ErrorCodes.NOT_ENOUGH_CREDITS);
+        else if (message.subtype === "error_during_execution")
+          throw this.createReviewErrorAndLog(owner, repo, prNumber, `Orchestrator failed: ${message.subtype}.`, message, ErrorCodes.UNKNOWN_ERROR);
       }
     }
     throw new ReviewError("Orchestrator failed. Max turns have been reached", ErrorCodes.AGENT_FAILED, {"Max_Turns": maxTurns});
+  }
+
+  private createReviewErrorAndLog(owner: string, repo: string, prNumber: number, loggerMessage: string, message: SDKMessage, errorCode: string): ReviewError {
+    if(message?.type !== "result" || message?.subtype === "success")
+      throw new ReviewError(`Orchestrator failed: ${message?.type}. Unexpected message type result and subtype of error.`, ErrorCodes.UNKNOWN_ERROR);
+    const reviewError = new ReviewError(loggerMessage, errorCode, {errors: message?.errors?.join("\n")?? "No error details provided"});
+    logReviewError(owner, repo, prNumber, reviewError as Error);
+    return reviewError;
   }
 
   private async* generateMessages(prompt: string) {

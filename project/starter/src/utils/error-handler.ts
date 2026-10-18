@@ -36,7 +36,8 @@ export const ErrorCodes = {
   // General errors
   RETRY_EXHAUSTED: 'RETRY_EXHAUSTED',
   VALIDATION_FAILED: 'VALIDATION_FAILED',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR'
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+  NOT_ENOUGH_CREDITS: 'NOT_ENOUGH_CREDITS',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
@@ -83,6 +84,11 @@ export async function withRetry<T>(
       // scratch on the same budget rarely helped. Now that the caller passes a
       // shared session tracker (see orchestrator.ts), a retry resumes the prior
       // session instead of restarting — so retrying after a timeout is worthwhile.
+
+      if (error instanceof ReviewError && error.code === ErrorCodes.NOT_ENOUGH_CREDITS) {
+        throw new ReviewError("Not enough credits to complete the operation",
+            ErrorCodes.NOT_ENOUGH_CREDITS, {attempts: attempt, ...error.metadata});
+      }
       if (attempt === maxRetries) {
         throw new ReviewError(
           `Max retries have been reached: ${formatError(error)}`,
@@ -117,12 +123,6 @@ export const withTimeout= async<T>(
   timeoutMs: number,
   errorMessage: string = 'Operation timed out'
 ): Promise<T> =>
-  // TODO: Implement timeout wrapper using Promise.race
-  // Hints:
-  // - Use Promise.race to race fn() against a timeout promise
-  // - The timeout promise should reject after timeoutMs milliseconds
-  // - Throw ReviewError with ErrorCodes.AGENT_TIMEOUT on timeout
-  // - Include timeoutMs in metadata
   await Promise.race([
     fn(),
     new Promise<T>((_, reject) =>
