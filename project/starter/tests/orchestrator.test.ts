@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CodeReviewOrchestrator } from '../src/orchestrator';
 import { logAgentStart, logAgentComplete, ErrorCodes } from '../src/utils';
+import { ReviewReportSchema } from '../src/types/report-types';
 import type { ReviewReport } from '../src/types/report-types';
 import {
   codeQualityAnalyzer,
@@ -96,6 +97,14 @@ beforeEach(() => {
  */
 
 describe('CodeReviewOrchestrator', () => {
+  // Direct schema check, independent of orchestration - confirms
+  // ReviewReportSchema accepts a well-formed report on its own, not just
+  // as a side effect of the orchestrator's end-to-end happy path.
+  it('ReviewReportSchema accepts a valid ReviewReport', () => {
+    const parsed = ReviewReportSchema.safeParse(validReviewReport());
+    expect(parsed.success).toBe(true);
+  });
+
   describe('Configuration', () => {
     it('should initialize with default options', () => {
       const orchestrator = new CodeReviewOrchestrator({ orchestratorPrompt: fakePrompt, subAgents: fakeSubAgents });
@@ -197,6 +206,17 @@ describe('CodeReviewOrchestrator', () => {
   });
 
   describe('Integration', () => {
+    // Skipped by default - requires real credentials and makes real API/GitHub calls.
+    // To run manually: change `it.skip` to `it` below, then revert afterward.
+    //
+    // Required token scopes:
+    // - ANTHROPIC_API_KEY: no special scopes - a standard Anthropic API key
+    //   (or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION for Bedrock).
+    //   ANTHROPIC_MODEL must also be set.
+    // - GITHUB_TOKEN (optional but recommended): a GitHub personal access
+    //   token with `public_repo` scope (read access to public repos) is
+    //   enough, since this test only reads a public PR (octocat/Hello-World).
+    //   Omitting it still works, just at GitHub's lower unauthenticated rate limit.
     it.skip('should review a real small PR', async () => {
       vi.doUnmock('@anthropic-ai/claude-agent-sdk');
       vi.doUnmock('../src/utils');
