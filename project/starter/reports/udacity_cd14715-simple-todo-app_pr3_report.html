@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #f8f9fa;
+      color: #212529;
+    }
+    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 12px; }
+    .summary {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: 24px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+    }
+    .metric { text-align: center; }
+    .metric-value { font-size: 2em; font-weight: bold; color: #3498db; }
+    .metric-label { color: #6c757d; font-size: 0.9em; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 12px; margin: 8px 0; border-radius: 4px; background: white; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    .priority { font-weight: bold; margin-right: 8px; }
+    .rec-critical .priority { color: #e74c3c; }
+    .rec-high .priority { color: #f39c12; }
+    .rec-medium .priority { color: #3498db; }
+    .rec-low .priority { color: #27ae60; }
+    footer { text-align: center; color: #6c757d; margin-top: 32px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Code Review Report</h1>
+  
+  <div class="summary">
+    <div class="metric">
+      <div class="metric-value">22</div>
+      <div class="metric-label">Overall Score</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">1</div>
+      <div class="metric-label">Files Reviewed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">9</div>
+      <div class="metric-label">Critical Issues</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">18</div>
+      <div class="metric-label">Tests Needed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">11</div>
+      <div class="metric-label">Refactorings</div>
+    </div>
+  </div>
+
+  <h2>🎯 Top Recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - PCI Compliance</strong>: IMMEDIATE ACTION REQUIRED: Remove all raw payment card data handling. The code currently processes cardNumber and CVV in plain text, which is a severe PCI DSS violation. Implement payment tokenization using a PCI-compliant payment processor like Stripe, PayPal, or Square. Card details must be collected client-side and sent directly to the payment processor, returning only a secure token to your server. This is the most critical security issue that must be addressed before any production deployment.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - Access Control</strong>: Add authentication and authorization checks to all user-facing functions. Currently, processPremiumPayment, hasFeatureAccess, and getUserSubscription lack authorization checks, allowing any user to manipulate other users' subscriptions or access their data (IDOR vulnerability). Implement middleware to verify the authenticated user matches the userId parameter, or add authorization checks at the start of each function.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - Rate Limiting</strong>: Implement rate limiting on payment processing endpoints to prevent card testing attacks. Attackers can currently try multiple stolen card numbers rapidly to find valid ones. Limit payment attempts to 3 per user per hour using express-rate-limit or similar middleware. Also implement idempotency keys to prevent double-charging from network retries.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Test Coverage</strong>: Create comprehensive test suite for all payment and authorization logic. The file currently has 0% test coverage for critical financial operations. Priority tests include: (1) processPremiumPayment with all success/failure paths, (2) validatePaymentDetails with edge cases, (3) hasFeatureAccess authorization checks, (4) chargeCard error handling, (5) calculateSubscriptionPrice precision. Target >95% coverage with 100% branch coverage on authorization checks.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Business Logic - Race Conditions</strong>: Fix race condition between payment charging and subscription upgrade. If chargeCard succeeds but upgradeUserSubscription fails, the user is charged without receiving the subscription. Implement distributed transaction pattern or saga pattern with compensation logic. Consider using payment gateway webhooks to confirm charge success before upgrading subscription, and add refund logic if upgrade fails.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Business Logic - Date Validation</strong>: Fix card expiry date validation bug. The current logic compares against the beginning of the expiry month, incorrectly rejecting cards valid through the end of that month. A card expiring 12/24 should be valid through December 31, 2024, not just December 1, 2024. Update the validation to check the last day of the expiry month or use month/year comparison instead of date objects.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Error Handling</strong>: Implement consistent error handling throughout the payment flow. Currently, some errors throw exceptions while others return false, making error handling unpredictable. Standardize on exception-based error handling with custom error types (InvalidPaymentError, PaymentProcessingError, UnauthorizedError). Add proper try-catch blocks around database operations and JSON parsing to prevent uncaught errors.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Logging & Audit Trail</strong>: Add comprehensive structured logging for payment processing. Currently, there's minimal logging, making it impossible to track payment attempts, debug failures, or investigate fraud. Log all payment attempts with userId, tier, amount, and outcome. Use a proper logging library instead of console.error. Ensure sensitive data (card numbers, CVV) is never logged. Add audit trail to payment records with userId and timestamp.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Architecture - Repository Pattern</strong>: Extract all database access into a SubscriptionRepository class. Currently, raw SQL queries are scattered throughout business logic, violating Single Responsibility Principle and making testing difficult. Implementing the Repository pattern will centralize data access, enable easy mocking for tests, and make it trivial to add caching or swap database implementations.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Architecture - Strategy Pattern</strong>: Refactor tier-specific logic using the Strategy pattern. Currently, tier configuration (pricing, features, duration) is scattered across multiple conditional statements. Create a SubscriptionTier interface with PremiumTier and EnterpriseTier implementations. This makes adding new tiers easier and centralizes all tier-specific configuration, following the Open/Closed Principle.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Code Quality - Financial Precision</strong>: Fix floating-point arithmetic in price calculations. Financial calculations should use integer cents or a decimal library to avoid precision issues (e.g., 0.1 + 0.2 !== 0.3 in JavaScript). Store prices as integer cents (999 instead of 9.99) and perform all calculations in cents, converting to dollars only for display.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Configuration</strong>: Externalize hardcoded business constants. Tax rates, processing fees, tier pricing, and feature lists are currently hardcoded, making them difficult to change without deployment. Move these to configuration files, environment variables, or a database. This enables A/B testing, regional pricing, promotional discounts, and maintains an audit trail of changes.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Performance - Caching</strong>: Implement caching for subscription queries. hasFeatureAccess and getUserSubscription make database queries on every call, creating unnecessary load for frequently accessed data. Implement Redis caching with a 5-minute TTL for subscription data. Create a shared fetchSubscription helper to avoid query duplication between functions.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-low">
+        <span class="priority">[LOW]</span>
+        <strong>Code Quality - Testability</strong>: Refactor date-dependent logic for testability. Direct use of 'new Date()' makes time-dependent tests flaky. Inject a clock/date provider that can be mocked in tests. This allows deterministic testing of expiry validation, subscription duration calculations, and date comparisons without relying on system time.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    
+      <li class="rec-low">
+        <span class="priority">[LOW]</span>
+        <strong>Code Quality - SQL Best Practices</strong>: Replace SELECT * with explicit column selection in getUserSubscription. Selecting all columns is inefficient and makes the code brittle to schema changes. Specify only the needed columns: user_id, tier, valid_until, features. This improves query performance and makes dependencies explicit.
+        <br><small>Files: src/premium.ts</small>
+      </li>
+    </ul>
+
+  <footer>
+    Generated at 2025-01-18T10:30:00Z • Duration: 45000ms
+  </footer>
+</body>
+</html>
