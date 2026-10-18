@@ -4,7 +4,7 @@
   "description": "Starter: Build a JavaScript code reviewer using Claude Skills with structured outputs",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",

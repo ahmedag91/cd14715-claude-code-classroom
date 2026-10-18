@@ -1,21 +1,8 @@
-/**
- * Code Quality Reviewer - Exercise
- *
- * TODO: Build an agent that uses ESLint MCP server to analyze code quality,
- * identify issues, and provide recommendations.
- *
- * Learning objectives:
- * - Use MCP servers with the Claude Agent SDK
- * - Implement async generator input mode (streaming pattern)
- * - Handle MCP server connection status
- * - Parse and return structured results
- */
-
 import "dotenv/config";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { eslintTools, mcpServersConfig } from "./config/mcp.config.js";
+import { eslintTools, mcpServersConfig } from "./config/mcp.config.ts";
 
 const model = process.env.ANTHROPIC_MODEL;
 if (!model) {
@@ -74,14 +61,18 @@ export const CodeQualityReportJSONSchema = zodToJsonSchema(CodeQualityReportSche
 // -----------------------------------------------------------------------------
 
 async function* generateMessages(userMessage: string) {
-  throw new Error("TODO: Implement generateMessages async generator");
-}
+yield {
+    type: "user" as const,
+    message: { role: "user" as const, content: userMessage },
+    parent_tool_use_id: null,
+    session_id: "code-reviewer-session",
+  };}
 
 // -----------------------------------------------------------------------------
 // Main Function
 // -----------------------------------------------------------------------------
 
-export async function reviewCodeFile(filePath: string): Promise<any> {
+export async function reviewCodeFile(filePath: string): Promise<CodeQualityReport> {
   const userMessage = `You are a code quality reviewer with access to ESLint via MCP.
 
 Analyze the JavaScript file and provide a comprehensive quality report.
@@ -90,40 +81,122 @@ File path: ${filePath}
 
 ANALYSIS REQUIREMENTS:
 
-1. Use the mcp__eslint__lint tool to lint the file at the path above
+1. Use the mcp__eslint__lint-files tool to lint the file at the path above
 
-2. Use the Read tool to read the file at the path above
+2. If ESLint couldn't find a config file, do the following: 
+  - Create a default ESLint config file. 
+  - Use the Write tool to create the file at the path: eslint.config.js.
+  - Use the Read tool to load such configuration file and ensure it is valid configuration. If not, provide a clear error message.
+  
+3. Use the Read tool to read the file at the path above
 
-3. Identify all linting issues with:
+4. Identify all linting issues with:
    - Line and column number
    - Severity (error, warning, info)
    - ESLint rule violated
    - Description of the problem
    - How to fix it
 
-4. Categorize issues:
+5. Categorize issues:
    - formatting: Spacing, indentation, quotes, semicolons
    - bestPractices: no-var, no-eval, prefer-const, etc.
    - potentialBugs: no-unused-vars, no-cond-assign, etc.
    - other: Any other issues
 
-5. Calculate quality score (0-100):
+6. Calculate quality score (0-100):
    - Start at 100
    - Subtract 10 for each error
    - Subtract 5 for each warning
    - Subtract 2 for each info
    - Minimum score is 0
 
-6. Provide 2-4 actionable recommendations to improve the code.
+7. Provide 2-4 actionable recommendations to improve the code.
 
 Return the complete quality report in the structured JSON format.`;
 
-  // TODO: Step 2 - Call the query function
+  try {
+    const messageTypes = new Set<string>() 
+    for await (const message of query({
+      prompt: generateMessages(userMessage),
+      options: {
+        mcpServers: mcpServersConfig,
+        model,
+        allowedTools: [...eslintTools, 'Read', 'Write'],
+        // Structured output configuration
+        outputFormat: {
+          type: "json_schema",
+          schema: CodeQualityReportJSONSchema,
+        },
+      },
+    })) {
+      
+      
+      /**
+       * 
+       * //Comment out all what is inside this loop except for this log statment to sea what messages are being received from the agent. 
+       * 
+       */
+      //console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, message);
 
-  // TODO: Step 3 - Handle the message stream:
-  // - Check for "init" message to verify MCP server connection status
-  // - Log tool use events (when message.type === "assistant")
-  // - Return the result when message.type === "result" && message.subtype === "success"
+      /*if(message.type){
+      messageTypes.add(message.type)
+      console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, 
+        message);
+        }
+        if(messageTypes.size > 3) 
+          throw new Error(`Messages exceeded max size`);
+      */
 
-  throw new Error("TODO: Implement reviewCodeFile using query() with MCP servers");
+        if(message.type === "tool_progress")
+          console.log(`[Agent]: Received message of type: ${message.type}, subtype ${message.subtype}`, 
+        message);
+
+      if (message.type === "system" && message.subtype === "init") {
+        console.log("Available MCP tools:", message.mcp_servers);
+        if (message.mcp_servers) {
+          console.log("Found init message in MCP servers")
+          for (const server of message.mcp_servers) {
+            if (server.status !== "connected") {
+              throw new Error(
+                `MCP server '${server.name}' failed to connect: ${server.status || "Unknown error"}`,
+              );
+            }
+            console.log(`[MCP]: Server '${server.name}' status: ${server.status}`);
+          }
+        }
+      }
+
+      if (message.type === "assistant") {
+        const content = message.message?.content;
+        console.log("[Assistant]:", content);
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            //console.log("Block:" , block)
+            if (block.type === "tool_use") {
+              console.log(`[Tool]: ${block.name}`);
+            }
+          }
+        }
+      }
+      
+      // Handle structured output result
+      if (message.type === "result") {
+        if (message.subtype === "success" && message.structured_output) {
+          console.log(
+            "Structured output received, validating against schema...",
+            message.structured_output,
+          );
+          return CodeQualityReportSchema.parse(message.structured_output);
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to get structured output from agent");
+  }
+  throw new Error(
+    "Error occurred. Could not generate code quality report for the file: " +
+      filePath,
+  );
 }

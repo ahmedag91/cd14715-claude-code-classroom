@@ -4,7 +4,7 @@
   "description": "Demo: Create a Claude Skill for email etiquette analysis that agents can invoke for professional communication guidance",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",

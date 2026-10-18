@@ -9,8 +9,8 @@
  */
 
 import "dotenv/config";
-import { reviewEmail } from "./email-reviewer.js";
-import { sampleEmails } from "./sample-emails.js";
+import { reviewEmail } from "./email-reviewer.ts";
+import { sampleEmails } from "./sample-emails.ts";
 
 // -----------------------------------------------------------------------------
 // Test case: Review a casual email

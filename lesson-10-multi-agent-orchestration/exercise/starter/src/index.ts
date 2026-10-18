@@ -5,15 +5,19 @@
  */
 
 import "dotenv/config";
-import { qualifyOpportunity, SalesBriefing } from "./sales-qualifier.js";
-import { sampleProspects } from "./sample-prospects.js";
+import { qualifyOpportunity, type SalesBriefing } from "./sales-qualifier.ts";
+import { sampleProspects } from "./sample-prospects.ts";
 
 // -----------------------------------------------------------------------------
 // Test case: Qualify an enterprise prospect
 // -----------------------------------------------------------------------------
 
-async function qualifyEnterpriseProspect() {
-  const prospect = sampleProspects[0]; // TechCorp Industries
+async function qualifyEnterpriseProspect(companyName: string = "TechCorp Industries") {
+  const prospect = sampleProspects[companyName];
+    if (!prospect) {
+        console.error(`Prospect not found: ${companyName}`);
+        return;
+    }
 
   console.log(`Qualifying: ${prospect.companyName}`);
   console.log(`Contact: ${prospect.name}, ${prospect.title}\n`);
@@ -72,7 +76,12 @@ async function main() {
   console.log("  Orchestrator coordinates researcher, analyzer, scorer");
   console.log("=".repeat(60));
 
-  await qualifyEnterpriseProspect();
+  for (const prospect of ["TechCorp Industries", "GrowthStartup Inc", "LocalBiz Solutions"]) {
+    console.log(`Researching: ${prospect}`);
+    console.log("=".repeat(60));
+    await qualifyEnterpriseProspect(prospect);
+  }
+
 }
 
 main().catch(console.error);

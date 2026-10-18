@@ -18,8 +18,8 @@ import "dotenv/config";
 import {
   conductResearch,
   conductParallelResearch,
-  ResearchResult,
-} from "./research-orchestrator.js";
+  type ResearchResult, type ResearchResults,
+} from "./research-orchestrator.ts";
 
 // -----------------------------------------------------------------------------
 // Demo: Sequential Research (single topic)
@@ -53,7 +53,9 @@ async function parallelResearchDemo() {
   console.log("\nOrchestrator launching subagents in parallel...\n");
 
   const results = await conductParallelResearch(topics);
-  results.forEach((result) => printResult(result));
+  console.log("Final results received:", results);
+
+  results.results.forEach((result) => printResult(result));
 }
 
 // -----------------------------------------------------------------------------
@@ -80,8 +82,8 @@ async function main() {
   console.log("  Orchestrator coordinates researcher, analyzer, summarizer");
   console.log("=".repeat(60));
 
-  await sequentialResearchDemo();
-  // await parallelResearchDemo();
+  //await sequentialResearchDemo();
+  await parallelResearchDemo();
 }
 
 main().catch(console.error);

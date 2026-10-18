@@ -8,7 +8,7 @@
 import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
-import { reviewJavaScriptFile } from "./js-reviewer.js";
+import { reviewJavaScriptFile } from "./js-reviewer.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

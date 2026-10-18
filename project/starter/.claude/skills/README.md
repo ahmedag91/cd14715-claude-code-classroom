@@ -30,7 +30,7 @@ Create **3 additional skills** (minimum 2 required):
 
 ### Optional Skills (Choose 1+)
 
-3. **python-code-review/** - Python idioms and patterns
+3. **kotlin-code-review/** - Kotlin/Spring Boot backend idioms and patterns
 4. **performance-optimization/** - Performance analysis
 5. **accessibility/** - Web accessibility (for frontend code)
 6. **Your custom skill** - Any domain expertise you want to add
@@ -44,11 +44,11 @@ Each skill must be in its own folder with a `SKILL.md` file:
 ├── javascript-best-practices/
 │   └── SKILL.md               ✅ Provided example
 ├── typescript-patterns/
-│   └── SKILL.md               TODO: Create
+│   └── SKILL.md               ✅ Created
 ├── security-analysis/
-│   └── SKILL.md               TODO: Create
-└── python-code-review/
-    └── SKILL.md               TODO: Create
+│   └── SKILL.md               ✅ Created
+└── kotlin-code-review/
+    └── SKILL.md               ✅ Created
 ```
 
 ## SKILL.md Format
@@ -113,7 +113,7 @@ In `code-quality-analyzer` prompt:
 2. Invoke Skills based on file type:
    - .ts/.tsx files: invoke Skill "typescript-patterns"
    - .js/.jsx files: invoke Skill "javascript-best-practices"
-   - .py files: invoke Skill "python-code-review"
+   - .kt files: invoke Skill "kotlin-code-review"
    - ALL files: invoke Skill "security-analysis"
 3. Analyze using the skill's guidance
 4. Return structured feedback

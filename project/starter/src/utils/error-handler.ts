@@ -1,3 +1,5 @@
+import {logger} from "./logger";
+
 /**
  * Custom error class for review operations
  */
@@ -36,7 +38,8 @@ export const ErrorCodes = {
   // General errors
   RETRY_EXHAUSTED: 'RETRY_EXHAUSTED',
   VALIDATION_FAILED: 'VALIDATION_FAILED',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR'
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+  NOT_ENOUGH_CREDITS: 'NOT_ENOUGH_CREDITS',
 } as const;
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
@@ -75,9 +78,40 @@ export async function withRetry<T>(
   // - Add jitter: Math.random() * 100
   // - Use setTimeout wrapped in Promise for delay
   // - Throw ReviewError with ErrorCodes.RETRY_EXHAUSTED if all retries fail
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      // Previously, a timeout skipped retrying here because restarting from
+      // scratch on the same budget rarely helped. Now that the caller passes a
+      // shared session tracker (see orchestrator.ts), a retry resumes the prior
+      // session instead of restarting — so retrying after a timeout is worthwhile.
 
-  throw new Error('Not implemented');
+      if (error instanceof ReviewError) {
+
+        if(error.code === ErrorCodes.NOT_ENOUGH_CREDITS)
+          throw new ReviewError("Not enough credits to complete the operation",
+            ErrorCodes.NOT_ENOUGH_CREDITS, {attempts: attempt, ...error.metadata});
+
+        if(error.code === ErrorCodes.AGENT_TIMEOUT)
+          logger.error(`Attempt ${attempt} failed due to timeout. Retrying...`, { error: formatError(error) });
+      }
+      if (attempt === maxRetries) {
+        throw new ReviewError(
+          `Max retries have been reached: ${formatError(error)}`,
+          ErrorCodes.RETRY_EXHAUSTED,
+          { attempts: maxRetries, lastError: formatError(error) }
+        );
+      }
+      const backoff = delayMs * Math.pow(2, attempt - 1) + Math.random() * 100;
+      await sleep(backoff);
+    }
+  }
+  // Unreachable: the loop above always either returns or throws.
+  throw new ReviewError('Max retries have been reached', ErrorCodes.RETRY_EXHAUSTED);
 }
+
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Wrap an async function with timeout
@@ -91,20 +125,17 @@ export async function withRetry<T>(
  * @returns The result of the function if it completes before timeout
  * @throws ReviewError with AGENT_TIMEOUT code if timeout is reached
  */
-export async function withTimeout<T>(
+export const withTimeout= async<T>(
   fn: () => Promise<T>,
   timeoutMs: number,
   errorMessage: string = 'Operation timed out'
-): Promise<T> {
-  // TODO: Implement timeout wrapper using Promise.race
-  // Hints:
-  // - Use Promise.race to race fn() against a timeout promise
-  // - The timeout promise should reject after timeoutMs milliseconds
-  // - Throw ReviewError with ErrorCodes.AGENT_TIMEOUT on timeout
-  // - Include timeoutMs in metadata
-
-  throw new Error('Not implemented');
-}
+): Promise<T> =>
+  await Promise.race([
+    fn(),
+    new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new ReviewError(errorMessage, ErrorCodes.AGENT_TIMEOUT, {'timeoutMs': timeoutMs})), timeoutMs)
+    )
+  ])
 
 /**
  * Check if an error is a ReviewError

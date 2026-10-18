@@ -4,7 +4,7 @@
   "description": "Demo: Build a multi-agent system with an orchestrator coordinating researcher, analyzer, and summarizer agents",
   "main": "src/index.ts",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "node src/index.ts"
   },
   "keywords": [
     "claude",
@@ -17,7 +17,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.55",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.23",
     "dotenv": "^16.4.5"
   }
 }

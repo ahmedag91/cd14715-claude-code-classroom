@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #f8f9fa;
+      color: #212529;
+    }
+    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 12px; }
+    .summary {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: 24px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+    }
+    .metric { text-align: center; }
+    .metric-value { font-size: 2em; font-weight: bold; color: #3498db; }
+    .metric-label { color: #6c757d; font-size: 0.9em; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 12px; margin: 8px 0; border-radius: 4px; background: white; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    .priority { font-weight: bold; margin-right: 8px; }
+    .rec-critical .priority { color: #e74c3c; }
+    .rec-high .priority { color: #f39c12; }
+    .rec-medium .priority { color: #3498db; }
+    .rec-low .priority { color: #27ae60; }
+    footer { text-align: center; color: #6c757d; margin-top: 32px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Code Review Report</h1>
+  
+  <div class="summary">
+    <div class="metric">
+      <div class="metric-value">35</div>
+      <div class="metric-label">Overall Score</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">1</div>
+      <div class="metric-label">Files Reviewed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">3</div>
+      <div class="metric-label">Critical Issues</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">15</div>
+      <div class="metric-label">Tests Needed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">8</div>
+      <div class="metric-label">Refactorings</div>
+    </div>
+  </div>
+
+  <h2>🎯 Top Recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - SQL Injection</strong>: Fix three SQL injection vulnerabilities immediately. The searchTodos, searchTodosByStatus, and getTodosByUser functions use string concatenation/interpolation instead of parameterized queries, allowing attackers to execute arbitrary SQL. This could lead to data theft, modification, or deletion of the entire database.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - Testing</strong>: Create security tests for all three vulnerable functions with SQL injection payloads (e.g., "'; DROP TABLE todos; --", "' OR '1'='1") to demonstrate vulnerabilities exist, then validate fixes prevent injection attacks.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Security - Authorization</strong>: Implement authorization checks in updateTodoStatus and deleteTodo functions to prevent Insecure Direct Object Reference (IDOR) vulnerabilities. Currently any user can modify or delete any todo without ownership verification (OWASP A01: Broken Access Control).
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Testing - Core Functions</strong>: Add comprehensive test suite for all 11 functions. Currently there is ZERO test coverage. Start with security-critical functions (validateTodoInput, sanitizeInput) and data mutation functions (createTodo, updateTodoStatus, deleteTodo).
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Error Handling</strong>: Add proper error handling throughout all database operations. Functions like getAllTodos, updateTodoStatus, and deleteTodo lack try-catch blocks and don't verify operation success (e.g., checking rowCount for updates/deletes).
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Input Validation</strong>: Add input validation to all functions that accept user input. Functions like getTodoById, updateTodoStatus, deleteTodo, and all search functions don't validate parameter types or formats, risking unexpected behavior and database errors.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Type Safety</strong>: Fix type mismatch in searchTodosByStatus - parameter is typed as string but should be boolean to match database schema. This creates confusion and potential runtime errors. Convert at API boundary, not in data layer.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Code Quality - Refactoring</strong>: Extract common search query logic into a reusable helper function. The three search functions duplicate database query patterns with only filter criteria changing, violating DRY principle and increasing maintenance burden.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Performance</strong>: Add pagination to getAllTodos function. Loading all records without limits will cause memory issues and poor performance as data grows. Implement LIMIT and OFFSET parameters with sensible defaults (e.g., 100 items per page).
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Security - ID Generation</strong>: Replace Math.random() based ID generation with crypto.randomUUID() for cryptographically secure, guaranteed unique IDs. Current approach is predictable and could produce collisions in concurrent scenarios.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Data Model</strong>: Add userId field to Todo interface. The getTodosByUser function implies multi-user functionality exists, but the Todo interface lacks userId field, creating inconsistency about data ownership model.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-low">
+        <span class="priority">[LOW]</span>
+        <strong>Performance - Query Optimization</strong>: Replace LIKE queries with leading wildcards ('%keyword%') with full-text search (PostgreSQL tsvector/tsquery or Elasticsearch). Current approach prevents index usage and causes full table scans, becoming very slow on large datasets.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-low">
+        <span class="priority">[LOW]</span>
+        <strong>Error Handling - Custom Errors</strong>: Create custom error classes (ValidationError, NotFoundError, DatabaseError) instead of generic Error objects. This enables type-safe error handling and makes it easier for callers to handle specific error cases programmatically.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    
+      <li class="rec-low">
+        <span class="priority">[LOW]</span>
+        <strong>Best Practice - Sanitization</strong>: Remove unnecessary sanitizeInput calls before database storage when using parameterized queries. Sanitization should be context-specific at output time (HTML rendering vs JSON API), not at storage. Current approach could cause data loss if special characters are legitimate.
+        <br><small>Files: src/todo.ts</small>
+      </li>
+    </ul>
+
+  <footer>
+    Generated at 2026-10-18T00:00:00Z • Duration: 0ms
+  </footer>
+</body>
+</html>

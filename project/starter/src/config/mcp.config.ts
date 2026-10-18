@@ -11,7 +11,14 @@
  * - ESLint MCP: https://eslint.org/docs/latest/use/mcp
  */
 
-export const mcpServersConfig = {
+export interface McpServerConfig {
+    type: "stdio";
+    command: string;
+    args: string[];
+    env?: Record<string, string>;
+}
+
+export const mcpServersConfig: Record<string, McpServerConfig> = {
   /**
    * GitHub MCP Server
    * Provides tools for GitHub API operations
@@ -26,7 +33,14 @@ export const mcpServersConfig = {
    * The GitHub MCP server expects GITHUB_PERSONAL_ACCESS_TOKEN as the env var name.
    * We map our GITHUB_TOKEN from .env to this expected name.
    */
-  github: { },
+  github: {
+    type: "stdio",
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-github"],
+    env: {
+      GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN || ''
+    }
+  },
 
   /**
    * ESLint MCP Server
@@ -38,5 +52,19 @@ export const mcpServersConfig = {
    * - args: ['-y', '@eslint/mcp@latest']
    * - env: {}
    */
-  eslint: { }
+  eslint: {
+    type: "stdio",
+    command: "npx",
+    args: ["-y", "@eslint/mcp@latest"],
+    env: {
+
+    }
+  }
 };
+export const eslintTools = [
+  "mcp__eslint__*"
+];
+
+export const githubTools = [
+  "mcp__github__*"
+];
