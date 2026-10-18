@@ -47,15 +47,18 @@ export class CodeReviewOrchestrator {
     const maxTurns = 10;
     const PROJECT_ROOT = path.resolve(__dirname, "..")
     const activeSubagents = new Map<string, { subagentType: string; file: string; startedAt: number }>();
+    const retryPrompt = `Continue the code review from exactly where you left off. Do not restart, 
+        and do not re-invoke any subagent that has already returned results for a file.`
 
     const resumeSessionId = sessionTracker?.sessionId;
     const promptText = resumeSessionId
-        ? `Continue the code review from exactly where you left off. Do not restart, 
-        and do not re-invoke any subagent that has already returned results for a file.`
+        ? retryPrompt
         : this.orchestratorPrompt(owner, repo, prNumber);
 
     if(resumeSessionId)
       logger.info(`Resuming code review session ${resumeSessionId} for ${owner}/${repo}/pull/${prNumber} with a retry attempt`);
+    else
+      logger.info(`Starting a new code review session for ${owner}/${repo}/pull/${prNumber}`);
 
     for await (const message of query({
       prompt: this.generateMessages(promptText),
