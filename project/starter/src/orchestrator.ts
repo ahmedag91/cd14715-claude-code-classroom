@@ -54,6 +54,9 @@ export class CodeReviewOrchestrator {
         and do not re-invoke any subagent that has already returned results for a file.`
         : this.orchestratorPrompt(owner, repo, prNumber);
 
+    if(resumeSessionId)
+      logger.info(`Resuming code review session ${resumeSessionId} for ${owner}/${repo}/pull/${prNumber} with a retry attempt`);
+
     for await (const message of query({
       prompt: this.generateMessages(promptText),
       options: {
