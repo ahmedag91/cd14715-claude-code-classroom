@@ -96,10 +96,14 @@ async function main() {
         });
         const startTime = Date.now();
         logReviewStart(owner, repo, prNumber);
+        // Shared across every retry attempt by reference: each attempt writes the
+        // real session_id as messages stream in, so a retry after a timeout resumes
+        // the prior session instead of restarting from scratch.
+        const sessionTracker: { sessionId?: string } = {};
         const reviewReport = await withRetry(() =>
             withRateLimit(globalRateLimiter,
                 () => withTimeout(
-                    () => orchestrator.reviewPullRequest(owner, repo, prNumber),
+                    () => orchestrator.reviewPullRequest(owner, repo, prNumber, sessionTracker),
                     600000,
                     'Review pull request timed out'
                 )

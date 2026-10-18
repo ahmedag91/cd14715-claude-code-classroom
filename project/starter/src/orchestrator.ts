@@ -42,13 +42,20 @@ export class CodeReviewOrchestrator {
       owner: string,
       repo: string,
       prNumber: number,
+      sessionTracker?: { sessionId?: string },
   ): Promise<ReviewReport> {
     const maxTurns = 10;
     const PROJECT_ROOT = path.resolve(__dirname, "..")
     const activeSubagents = new Map<string, { subagentType: string; file: string; startedAt: number }>();
 
+    const resumeSessionId = sessionTracker?.sessionId;
+    const promptText = resumeSessionId
+        ? `Continue the code review from exactly where you left off. Do not restart, 
+        and do not re-invoke any subagent that has already returned results for a file.`
+        : this.orchestratorPrompt(owner, repo, prNumber);
+
     for await (const message of query({
-      prompt: this.generateMessages(this.orchestratorPrompt(owner, repo, prNumber)),
+      prompt: this.generateMessages(promptText),
       options: {
         cwd: PROJECT_ROOT,
         settingSources: ["project"],
@@ -61,9 +68,13 @@ export class CodeReviewOrchestrator {
           schema: ReviewReportJSONSchema,
         },
         mcpServers: mcpServersConfig,
+        ...(resumeSessionId ? { resume: resumeSessionId } : {}),
       }
 
     })) {
+      if (sessionTracker && (message as any).session_id) {
+        sessionTracker.sessionId = (message as any).session_id;
+      }
       logger.debug(`[Orchestrator]: Received message of type ${message.type}`);
 
       if (message.type === "assistant") {
@@ -103,7 +114,7 @@ export class CodeReviewOrchestrator {
         if (parsedResults.success)
           return parsedResults.data;
         else
-          throw new ReviewError("Structured output generation failed after maximum retries.", ErrorCodes.STRUCTURED_OUTPUT_FAILED, {"Validation_Errors": parsedResults.error.format()});
+          throw new ReviewError("Structured output generation failed", ErrorCodes.STRUCTURED_OUTPUT_FAILED, {"Validation_Errors": parsedResults.error.format()});
       } else if (message.type === "result" &&
           (message.subtype === "error_max_turns" ||
               message.subtype === "error_max_structured_output_retries")) {

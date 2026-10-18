@@ -79,13 +79,10 @@ export async function withRetry<T>(
     try {
       return await fn();
     } catch (error) {
-      // A timeout means the attempt already used its full time (and cost) budget.
-      // Retrying with the same budget is unlikely to succeed, so fail fast instead
-      // of paying for maxRetries more timed-out attempts.
-      // TODO it should be improved
-      if (error instanceof ReviewError && error.code === ErrorCodes.AGENT_TIMEOUT) {
-        throw error;
-      }
+      // Previously, a timeout skipped retrying here because restarting from
+      // scratch on the same budget rarely helped. Now that the caller passes a
+      // shared session tracker (see orchestrator.ts), a retry resumes the prior
+      // session instead of restarting — so retrying after a timeout is worthwhile.
       if (attempt === maxRetries) {
         throw new ReviewError(
           `Max retries have been reached: ${formatError(error)}`,
